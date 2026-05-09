@@ -47,8 +47,7 @@
 }
 
 .question::before {
-  right: 0;
-  background: url(./icons/question.svg) no-repeat;
+  display: none;
 }
 
 .textArea {
@@ -74,12 +73,10 @@
 }
 
 .sendBtn {
-  background: url(./icons/send.svg) center center no-repeat;
+  border: none;
 }
 
 .sendBtn:hover {
-  background-image: url(./icons/send-active.svg);
-  background-color: #EBF5FF;
 }
 
 .textArea:focus+div .count {
@@ -87,5 +84,4 @@
 }
 
 .textArea:focus+div .sendBtn {
-  background-image: url(./icons/send-active.svg);
 }
