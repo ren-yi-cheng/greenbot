@@ -2,85 +2,112 @@ import React from 'react'
 import type { FC } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  ChatBubbleBottomCenterTextIcon,
   ChatBubbleOvalLeftEllipsisIcon,
-  PencilSquareIcon,
+  Squares2X2Icon,
 } from '@heroicons/react/24/outline'
-import { ChatBubbleOvalLeftEllipsisIcon as ChatBubbleOvalLeftEllipsisSolidIcon } from '@heroicons/react/24/solid'
-import Button from '@/app/components/base/button'
-// import Card from './card'
 import type { ConversationItem } from '@/types/app'
+import Image from 'next/image'
 
 function classNames(...classes: any[]) {
   return classes.filter(Boolean).join(' ')
 }
 
-const MAX_CONVERSATION_LENTH = 20
-
 export interface ISidebarProps {
-  copyRight: string
   currentId: string
+  mode: 'dashboard' | 'chat'
   onCurrentIdChange: (id: string) => void
+  onDashboardClick?: () => void
+  onChatbotClick?: () => void
   list: ConversationItem[]
 }
 
 const Sidebar: FC<ISidebarProps> = ({
-  copyRight,
   currentId,
+  mode,
   onCurrentIdChange,
+  onDashboardClick,
+  onChatbotClick,
   list,
 }) => {
   const { t } = useTranslation()
-  return (
-    <div
-      className="shrink-0 flex flex-col overflow-y-auto bg-white pc:w-[244px] tablet:w-[192px] mobile:w-[240px]  border-r border-gray-200 tablet:h-[calc(100vh_-_3rem)] mobile:h-screen"
-    >
-      {list.length < MAX_CONVERSATION_LENTH && (
-        <div className="flex flex-shrink-0 p-4 !pb-0">
-          <Button
-            onClick={() => { onCurrentIdChange('-1') }}
-            className="group block w-full flex-shrink-0 !justify-start !h-9 text-primary-600 items-center text-sm"
-          >
-            <PencilSquareIcon className="mr-2 h-4 w-4" /> {t('app.chat.newChat')}
-          </Button>
-        </div>
-      )}
 
-      <nav className="mt-4 flex-1 space-y-1 bg-white p-4 !pt-0">
-        {list.map((item) => {
-          const isCurrent = item.id === currentId
-          const ItemIcon
-            = isCurrent ? ChatBubbleOvalLeftEllipsisSolidIcon : ChatBubbleOvalLeftEllipsisIcon
-          return (
-            <div
-              onClick={() => onCurrentIdChange(item.id)}
-              key={item.id}
-              className={classNames(
-                isCurrent
-                  ? 'bg-primary-50 text-primary-600'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-700',
-                'group flex items-center rounded-md px-2 py-2 text-sm font-medium cursor-pointer',
-              )}
-            >
-              <ItemIcon
-                className={classNames(
-                  isCurrent
-                    ? 'text-primary-600'
-                    : 'text-gray-400 group-hover:text-gray-500',
-                  'mr-3 h-5 w-5 flex-shrink-0',
-                )}
-                aria-hidden="true"
-              />
-              {item.name}
-            </div>
-          )
-        })}
-      </nav>
-      {/* <a className="flex flex-shrink-0 p-4" href="https://langgenius.ai/" target="_blank">
-        <Card><div className="flex flex-row items-center"><ChatBubbleOvalLeftEllipsisSolidIcon className="text-primary-600 h-6 w-6 mr-2" /><span>LangGenius</span></div></Card>
-      </a> */}
-      <div className="flex flex-shrink-0 pr-4 pb-4 pl-4">
-        <div className="text-gray-400 font-normal text-xs">© {copyRight} {(new Date()).getFullYear()}</div>
+  return (
+    <div className="flex h-full shrink-0 flex-col border-r border-[#e7ebdf] bg-white pc:w-[320px] tablet:w-[280px] mobile:w-[280px]">
+      <div className='flex justify-center px-8 pb-8 pt-10'>
+        <div className='flex items-center gap-5'>
+          <Image src='/brand-icon.png' alt='greenbot' width={52} height={52} className='h-[52px] w-[52px] object-contain' />
+          <div className='text-[18px] font-semibold tracking-[-0.04em] text-[#171717]'>greenbot</div>
+        </div>
       </div>
+
+      <div className='border-t border-[#eef1ea]' />
+
+      <div className='space-y-2 px-5 py-6'>
+        <button
+          type='button'
+          onClick={onDashboardClick || (() => onCurrentIdChange('-1'))}
+          className={classNames(
+            mode === 'dashboard'
+              ? 'bg-[#2f9e44] text-white shadow-[0_10px_24px_-18px_rgba(47,158,68,0.85)]'
+              : 'text-[#6b7280] hover:bg-[#f7f9f5]',
+            'flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[15px] font-medium transition',
+          )}
+        >
+          <Squares2X2Icon className='h-5 w-5' />
+          <span>Dashboard</span>
+        </button>
+        <button
+          type='button'
+          onClick={onChatbotClick || (() => onCurrentIdChange(currentId || '-1'))}
+          className={classNames(
+            mode === 'chat'
+              ? 'bg-[#2f9e44] text-white shadow-[0_10px_24px_-18px_rgba(47,158,68,0.85)]'
+              : 'text-[#6b7280] hover:bg-[#f7f9f5]',
+            'flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[15px] font-medium transition',
+          )}
+        >
+          <ChatBubbleBottomCenterTextIcon className='h-5 w-5' />
+          <span>AI Chatbot</span>
+        </button>
+      </div>
+
+      {mode === 'chat' && (
+        <>
+          <div className='px-7 pb-2 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#b0b5bd]'>
+            History
+          </div>
+
+          <div className='flex-1 overflow-y-auto px-5 pb-5'>
+            <div className='space-y-1'>
+              {list.length === 0 && (
+                <div className='px-3 py-3 text-[14px] text-[#98a2b3]'>
+                  No conversations yet
+                </div>
+              )}
+              {list.map((item) => {
+                const isCurrent = item.id === currentId
+                return (
+                  <button
+                    type='button'
+                    key={item.id}
+                    onClick={() => onCurrentIdChange(item.id)}
+                    className={classNames(
+                      isCurrent
+                        ? 'bg-[#f2f7f1] text-[#171717]'
+                        : 'text-[#6b7280] hover:bg-[#f7f9f5]',
+                      'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[14px] transition',
+                    )}
+                  >
+                    <ChatBubbleOvalLeftEllipsisIcon className={classNames(isCurrent ? 'text-[#2f9e44]' : 'text-[#98a2b3]', 'h-4 w-4 shrink-0')} />
+                    <span className='truncate'>{item.name || t('app.chat.newChatDefaultName')}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

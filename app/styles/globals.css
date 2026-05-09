@@ -5,15 +5,22 @@
 @source "../../node_modules/streamdown/dist/index.js";
 
 :root {
-  --max-width: 1100px;
+  --max-width: 1180px;
   --border-radius: 12px;
   --font-mono: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono",
     "Roboto Mono", "Oxygen Mono", "Ubuntu Monospace", "Source Code Pro",
     "Fira Mono", "Droid Sans Mono", "Courier New", monospace;
 
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
+  --foreground-rgb: 15, 23, 42;
+  --background-start-rgb: 247, 251, 243;
   --background-end-rgb: 255, 255, 255;
+  --brand-ink: #0f172a;
+  --brand-muted: #475569;
+  --brand-surface: rgba(255, 255, 255, 0.76);
+  --brand-line: rgba(153, 180, 129, 0.28);
+  --brand-accent: #63bc46;
+  --brand-accent-soft: #edf7e5;
+  --brand-glow: radial-gradient(circle at top, rgba(139, 198, 63, 0.16), transparent 42%);
 
   --primary-glow: conic-gradient(from 180deg at 50% 50%,
       #16abff33 0deg,
@@ -83,12 +90,10 @@ body {
 
 body {
   color: rgb(var(--foreground-rgb));
-  /* background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb)); */
+  background:
+    var(--brand-glow),
+    linear-gradient(180deg, rgba(251, 253, 248, 1) 0%, rgba(244, 250, 239, 1) 42%, rgba(255, 255, 255, 1) 100%);
+  font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 }
 
 a {

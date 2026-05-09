@@ -1,4 +1,5 @@
 'use client'
+
 import type { FC } from 'react'
 import React, { useEffect, useRef } from 'react'
 import cn from 'classnames'
@@ -21,13 +22,7 @@ import { getProcessedFiles } from '@/app/components/base/file-uploader-in-attach
 
 export interface IChatProps {
   chatList: ChatItem[]
-  /**
-   * Whether to display the editing area and rating status
-   */
   feedbackDisabled?: boolean
-  /**
-   * Whether to display the input area
-   */
   isHideSendInput?: boolean
   onFeedback?: FeedbackFunc
   checkCanSend?: () => boolean
@@ -45,7 +40,7 @@ const Chat: FC<IChatProps> = ({
   isHideSendInput = false,
   onFeedback,
   checkCanSend,
-  onSend = () => { },
+  onSend = () => {},
   useCurrentUserAvatar,
   isResponding,
   controlClearQuery,
@@ -58,8 +53,19 @@ const Chat: FC<IChatProps> = ({
 
   const [query, setQuery] = React.useState('')
   const queryRef = useRef('')
+  const [attachmentFiles, setAttachmentFiles] = React.useState<FileEntity[]>([])
 
-  const handleContentChange = (e: any) => {
+  const {
+    files,
+    onUpload,
+    onRemove,
+    onReUpload,
+    onImageLinkLoadError,
+    onImageLinkLoadSuccess,
+    onClear,
+  } = useImageFiles()
+
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value
     setQuery(value)
     queryRef.current = value
@@ -70,8 +76,8 @@ const Chat: FC<IChatProps> = ({
   }
 
   const valid = () => {
-    const query = queryRef.current
-    if (!query || query.trim() === '') {
+    const currentQuery = queryRef.current
+    if (!currentQuery || currentQuery.trim() === '') {
       logError(t('app.errorMessage.valueOfVarRequired'))
       return false
     }
@@ -84,55 +90,57 @@ const Chat: FC<IChatProps> = ({
       queryRef.current = ''
     }
   }, [controlClearQuery])
-  const {
-    files,
-    onUpload,
-    onRemove,
-    onReUpload,
-    onImageLinkLoadError,
-    onImageLinkLoadSuccess,
-    onClear,
-  } = useImageFiles()
-
-  const [attachmentFiles, setAttachmentFiles] = React.useState<FileEntity[]>([])
 
   const handleSend = () => {
-    if (!valid() || (checkCanSend && !checkCanSend())) { return }
+    if (!valid() || (checkCanSend && !checkCanSend()))
+      return
+
     const hasPendingImageUploads = files.some(file => file.progress !== -1 && file.progress < 100)
     const hasPendingAttachmentUploads = attachmentFiles.some(file => file.progress !== -1 && file.progress < 100)
+
     if (hasPendingImageUploads || hasPendingAttachmentUploads) {
       logError(t('app.errorMessage.waitForFileUpload'))
       return
     }
-    const imageFiles: VisionFile[] = files.filter(file => file.progress !== -1).map(fileItem => ({
-      type: 'image',
-      transfer_method: fileItem.type,
-      url: fileItem.url,
-      upload_file_id: fileItem.fileId,
-    }))
+
+    const imageFiles: VisionFile[] = files
+      .filter(file => file.progress !== -1)
+      .map(fileItem => ({
+        type: 'image',
+        transfer_method: fileItem.type,
+        url: fileItem.url,
+        upload_file_id: fileItem.fileId,
+      }))
+
     const docAndOtherFiles: VisionFile[] = getProcessedFiles(attachmentFiles)
     const combinedFiles: VisionFile[] = [...imageFiles, ...docAndOtherFiles]
+
     onSend(queryRef.current, combinedFiles)
+
     if (!files.find(item => item.type === TransferMethod.local_file && !item.fileId)) {
-      if (files.length) { onClear() }
+      if (files.length)
+        onClear()
+
       if (!isResponding) {
         setQuery('')
         queryRef.current = ''
       }
     }
-    if (!attachmentFiles.find(item => item.transferMethod === TransferMethod.local_file && !item.uploadedId)) { setAttachmentFiles([]) }
+
+    if (!attachmentFiles.find(item => item.transferMethod === TransferMethod.local_file && !item.uploadedId))
+      setAttachmentFiles([])
   }
 
-  const handleKeyUp = (e: any) => {
+  const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.code === 'Enter') {
       e.preventDefault()
-      // prevent send message when using input method enter
-      if (!e.shiftKey && !isUseInputMethod.current) { handleSend() }
+      if (!e.shiftKey && !isUseInputMethod.current)
+        handleSend()
     }
   }
 
-  const handleKeyDown = (e: any) => {
-    isUseInputMethod.current = e.nativeEvent.isComposing
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    isUseInputMethod.current = (e.nativeEvent as any).isComposing
     if (e.code === 'Enter' && !e.shiftKey) {
       const result = query.replace(/\n$/, '')
       setQuery(result)
@@ -148,48 +156,49 @@ const Chat: FC<IChatProps> = ({
   }
 
   return (
-    <div className={cn(!feedbackDisabled && 'px-3.5', 'h-full')}>
-      {/* Chat List */}
-      <div className="h-full space-y-[30px]">
+    <div className={cn(!feedbackDisabled && 'px-6 md:px-8', 'flex h-full min-h-0 flex-col')}>
+      <div className="flex-1 space-y-8 overflow-y-auto pb-6 pt-6">
         {chatList.map((item) => {
           if (item.isAnswer) {
             const isLast = item.id === chatList[chatList.length - 1].id
-            return <Answer
-              key={item.id}
-              item={item}
-              feedbackDisabled={feedbackDisabled}
-              onFeedback={onFeedback}
-              isResponding={isResponding && isLast}
-              suggestionClick={suggestionClick}
-            />
+            return (
+              <Answer
+                key={item.id}
+                item={item}
+                feedbackDisabled={feedbackDisabled}
+                onFeedback={onFeedback}
+                isResponding={isResponding && isLast}
+                suggestionClick={suggestionClick}
+              />
+            )
           }
+
           return (
             <Question
               key={item.id}
               id={item.id}
               content={item.content}
               useCurrentUserAvatar={useCurrentUserAvatar}
-              imgSrcs={(item.message_files && item.message_files?.length > 0) ? item.message_files.map(item => item.url) : []}
+              imgSrcs={item.message_files?.length ? item.message_files.map(file => file.url) : []}
             />
           )
         })}
       </div>
-      {
-        !isHideSendInput && (
-          <div className='fixed z-10 bottom-0 left-1/2 transform -translate-x-1/2 pc:ml-[122px] tablet:ml-[96px] mobile:ml-0 pc:w-[794px] tablet:w-[794px] max-w-full mobile:w-full px-3.5'>
-            <div className='p-[5.5px] max-h-[150px] bg-white border-[1.5px] border-gray-200 rounded-xl overflow-y-auto'>
-              {
-                visionConfig?.enabled && (
-                  <>
-                    <div className='absolute bottom-2 left-2 flex items-center'>
-                      <ChatImageUploader
-                        settings={visionConfig}
-                        onUpload={onUpload}
-                        disabled={files.length >= visionConfig.number_limits}
-                      />
-                      <div className='mx-1 w-[1px] h-4 bg-black/5' />
-                    </div>
-                    <div className='pl-[52px]'>
+
+      {!isHideSendInput && (
+        <div className="shrink-0 pb-5 pt-3">
+          <div className="mx-auto max-w-[980px]">
+            <div className="rounded-[20px] border border-[#daddd7] bg-white px-4 py-3 shadow-[0_20px_42px_-30px_rgba(15,23,42,0.16)]">
+              {visionConfig?.enabled && (
+                <div className="mb-2">
+                  <div className="flex items-center gap-3">
+                    <ChatImageUploader
+                      settings={visionConfig}
+                      onUpload={onUpload}
+                      disabled={files.length >= visionConfig.number_limits}
+                    />
+                    <div className="h-4 w-px bg-[#e6e9e4]" />
+                    <div className="min-w-0 flex-1">
                       <ImageList
                         list={files}
                         onRemove={onRemove}
@@ -198,49 +207,62 @@ const Chat: FC<IChatProps> = ({
                         onImageLinkLoadError={onImageLinkLoadError}
                       />
                     </div>
-                  </>
-                )
-              }
-              {
-                fileConfig?.enabled && (
-                  <div className={`${visionConfig?.enabled ? 'pl-[52px]' : ''} mb-1`}>
-                    <FileUploaderInAttachmentWrapper
-                      fileConfig={fileConfig}
-                      value={attachmentFiles}
-                      onChange={setAttachmentFiles}
-                    />
                   </div>
-                )
-              }
-              <Textarea
-                className={`
-                  block w-full px-2 pr-[118px] py-[7px] leading-5 max-h-none text-base text-gray-700 outline-none appearance-none resize-none
-                  ${visionConfig?.enabled && 'pl-12'}
-                `}
-                value={query}
-                onChange={handleContentChange}
-                onKeyUp={handleKeyUp}
-                onKeyDown={handleKeyDown}
-                autoSize
-              />
-              <div className="absolute bottom-2 right-6 flex items-center h-8">
-                <div className={`${s.count} mr-3 h-5 leading-5 text-sm bg-gray-50 text-gray-500 px-2 rounded`}>{query.trim().length}</div>
-                <Tooltip
-                  selector='send-tip'
-                  htmlContent={
-                    <div>
-                      <div>{t('common.operation.send')} Enter</div>
-                      <div>{t('common.operation.lineBreak')} Shift Enter</div>
-                    </div>
-                  }
-                >
-                  <div className={`${s.sendBtn} w-8 h-8 cursor-pointer rounded-md`} onClick={handleSend}></div>
-                </Tooltip>
+                </div>
+              )}
+
+              {fileConfig?.enabled && (
+                <div className="mb-2">
+                  <FileUploaderInAttachmentWrapper
+                    fileConfig={fileConfig}
+                    value={attachmentFiles}
+                    onChange={setAttachmentFiles}
+                  />
+                </div>
+              )}
+
+              <div className="relative rounded-[16px] border border-[#edf0ea] bg-[#fbfcfa]">
+                <Textarea
+                  className="block w-full max-h-none resize-none appearance-none bg-transparent px-4 py-3 pr-[106px] text-[15px] leading-7 text-slate-800 outline-none"
+                  value={query}
+                  onChange={handleContentChange}
+                  onKeyUp={handleKeyUp}
+                  onKeyDown={handleKeyDown}
+                  autoSize={{ minRows: 1, maxRows: 6 }}
+                  placeholder={t('app.chat.startChat')}
+                />
+                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                  <div className="pointer-events-auto flex items-center gap-3">
+                    <div className={`${s.count} text-xs leading-5 text-slate-400`}>{query.trim().length}</div>
+                    <Tooltip
+                      selector="send-tip"
+                      htmlContent={(
+                        <div>
+                          <div>{t('common.operation.send')} Enter</div>
+                          <div>{t('common.operation.lineBreak')} Shift Enter</div>
+                        </div>
+                      )}
+                    >
+                      <button
+                        type="button"
+                        className={`${s.sendBtn} flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#74a86f] text-[20px] font-semibold text-white transition hover:bg-[#689963]`}
+                        onClick={handleSend}
+                        aria-label={t('common.operation.send')}
+                      >
+                        {`>`}
+                      </button>
+                    </Tooltip>
+                  </div>
+                </div>
               </div>
             </div>
+
+            <div className="mt-2 text-center text-[12px] text-[#b3b8bf]">
+              AI may produce inaccurate information. Please verify important details carefully.
+            </div>
           </div>
-        )
-      }
+        </div>
+      )}
     </div>
   )
 }

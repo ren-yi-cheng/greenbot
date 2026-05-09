@@ -1,14 +1,24 @@
 'use client'
 import type { FC } from 'react'
 import React, { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import { useTranslation } from 'react-i18next'
 import produce, { setAutoFreeze } from 'immer'
 import { useBoolean, useGetState } from 'ahooks'
+import {
+  CalculatorIcon,
+  Cog6ToothIcon,
+  DocumentTextIcon,
+  FolderIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  QuestionMarkCircleIcon,
+  PaperClipIcon,
+} from '@heroicons/react/24/outline'
 import useConversation from '@/hooks/use-conversation'
 import Toast from '@/app/components/base/toast'
 import Sidebar from '@/app/components/sidebar'
 import ConfigSence from '@/app/components/config-scence'
-import Header from '@/app/components/header'
 import { fetchAppParams, fetchChatList, fetchConversations, generationConversationName, sendChatMessage, updateFeedback } from '@/service'
 import type { ChatItem, ConversationItem, Feedbacktype, PromptConfig, VisionFile, VisionSettings } from '@/types/app'
 import type { FileUpload } from '@/app/components/base/file-uploader-in-attachment/types'
@@ -33,14 +43,10 @@ const Main: FC<IMainProps> = () => {
   const isMobile = media === MediaType.mobile
   const hasSetAppConfig = APP_ID && API_KEY
 
-  /*
-  * app info
-  */
   const [appUnavailable, setAppUnavailable] = useState<boolean>(false)
   const [isUnknownReason, setIsUnknownReason] = useState<boolean>(false)
   const [promptConfig, setPromptConfig] = useState<PromptConfig | null>(null)
   const [inited, setInited] = useState<boolean>(false)
-  // in mobile, show sidebar by click button
   const [isShowSidebar, { setTrue: showSidebar, setFalse: hideSidebar }] = useBoolean(false)
   const [visionConfig, setVisionConfig] = useState<VisionSettings | undefined>({
     enabled: false,
@@ -49,12 +55,15 @@ const Main: FC<IMainProps> = () => {
     transfer_methods: [TransferMethod.local_file],
   })
   const [fileConfig, setFileConfig] = useState<FileUpload | undefined>()
+  const [isLandingVisible, setIsLandingVisible] = useState(true)
+  const [homeQuery, setHomeQuery] = useState('')
+  const [pendingHomeQuery, setPendingHomeQuery] = useState('')
+  const [comingSoonFeature, setComingSoonFeature] = useState<string | null>(null)
 
   useEffect(() => {
-    if (APP_INFO?.title) { document.title = `${APP_INFO.title} - Powered by Dify` }
+    document.title = 'Chat App - greenbot'
   }, [APP_INFO?.title])
 
-  // onData change thought (the produce obj). https://github.com/immerjs/immer/issues/576
   useEffect(() => {
     setAutoFreeze(false)
     return () => {
@@ -62,9 +71,6 @@ const Main: FC<IMainProps> = () => {
     }
   }, [])
 
-  /*
-  * conversation info
-  */
   const {
     conversationList,
     setConversationList,
@@ -84,20 +90,21 @@ const Main: FC<IMainProps> = () => {
 
   const [conversationIdChangeBecauseOfNew, setConversationIdChangeBecauseOfNew, getConversationIdChangeBecauseOfNew] = useGetState(false)
   const [isChatStarted, { setTrue: setChatStarted, setFalse: setChatNotStarted }] = useBoolean(false)
+
   const handleStartChat = (inputs: Record<string, any>) => {
     createNewChat()
     setConversationIdChangeBecauseOfNew(true)
     setCurrInputs(inputs)
     setChatStarted()
-    // parse variables in introduction
     setChatList(generateNewChatListWithOpenStatement('', inputs))
   }
+
   const hasSetInputs = (() => {
     if (!isNewConversation) { return true }
-
     return isChatStarted
   })()
 
+  const hasPromptVariables = !!promptConfig?.prompt_variables?.length
   const conversationName = currConversationInfo?.name || t('app.chat.newChatDefaultName') as string
   const conversationIntroduction = currConversationInfo?.introduction || ''
   const suggestedQuestions = currConversationInfo?.suggested_questions || []
@@ -105,7 +112,6 @@ const Main: FC<IMainProps> = () => {
   const handleConversationSwitch = () => {
     if (!inited) { return }
 
-    // update inputs of current conversation
     let notSyncToStateIntroduction = ''
     let notSyncToStateInputs: Record<string, any> | undefined | null = {}
     if (!isNewConversation) {
@@ -124,7 +130,6 @@ const Main: FC<IMainProps> = () => {
       setCurrInputs(notSyncToStateInputs)
     }
 
-    // update chat list of current conversation
     if (!isNewConversation && !conversationIdChangeBecauseOfNew && !isResponding) {
       fetchChatList(currConversationId).then((res: any) => {
         const { data } = res
@@ -136,7 +141,6 @@ const Main: FC<IMainProps> = () => {
             content: item.query,
             isAnswer: false,
             message_files: item.message_files?.filter((file: any) => file.belongs_to === 'user') || [],
-
           })
           newChatList.push({
             id: item.id,
@@ -163,18 +167,39 @@ const Main: FC<IMainProps> = () => {
     else {
       setConversationIdChangeBecauseOfNew(false)
     }
-    // trigger handleConversationSwitch
     setCurrConversationId(id, APP_ID)
+    setIsLandingVisible(false)
     hideSidebar()
   }
 
-  /*
-  * chat info. chat is under conversation.
-  */
+  const handleGoDashboard = () => {
+    setIsLandingVisible(false)
+    setChatNotStarted()
+    hideSidebar()
+    createNewChat()
+    setConversationIdChangeBecauseOfNew(true)
+    setCurrConversationId('-1', APP_ID)
+    setChatList([])
+  }
+
+  const handleGoChatbot = () => {
+    setIsLandingVisible(false)
+    hideSidebar()
+    if (currConversationId && currConversationId !== '-1') {
+      setCurrConversationId(currConversationId, APP_ID)
+      return
+    }
+
+    createNewChat()
+    setConversationIdChangeBecauseOfNew(true)
+    setCurrConversationId('-1', APP_ID)
+    setChatStarted()
+    setChatList([])
+  }
+
   const [chatList, setChatList, getChatList] = useGetState<ChatItem[]>([])
   const chatListDomRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    // scroll to bottom with page-level scrolling
     if (chatListDomRef.current) {
       setTimeout(() => {
         chatListDomRef.current?.scrollIntoView({
@@ -184,10 +209,19 @@ const Main: FC<IMainProps> = () => {
       }, 50)
     }
   }, [chatList, currConversationId])
-  // user can not edit inputs if user had send message
+
   const canEditInputs = !chatList.some(item => item.isAnswer === false) && isNewConversation
+
+  useEffect(() => {
+    if (!pendingHomeQuery || !isChatStarted)
+      return
+
+    handleSend(pendingHomeQuery)
+    setPendingHomeQuery('')
+    setHomeQuery('')
+  }, [pendingHomeQuery, isChatStarted])
+
   const createNewChat = () => {
-    // if new chat is already exist, do not create new chat
     if (conversationList.some(item => item.id === '-1')) { return }
 
     setConversationList(produce(conversationList, (draft) => {
@@ -201,11 +235,12 @@ const Main: FC<IMainProps> = () => {
     }))
   }
 
-  // sometime introduction is not applied to state
   const generateNewChatListWithOpenStatement = (introduction?: string, inputs?: Record<string, any> | null) => {
     let calculatedIntroduction = introduction || conversationIntroduction || ''
     const calculatedPromptVariables = inputs || currInputs || null
-    if (calculatedIntroduction && calculatedPromptVariables) { calculatedIntroduction = replaceVarWithValues(calculatedIntroduction, promptConfig?.prompt_variables || [], calculatedPromptVariables) }
+    if (calculatedIntroduction && calculatedPromptVariables) {
+      calculatedIntroduction = replaceVarWithValues(calculatedIntroduction, promptConfig?.prompt_variables || [], calculatedPromptVariables)
+    }
 
     const openStatement = {
       id: `${Date.now()}`,
@@ -220,7 +255,6 @@ const Main: FC<IMainProps> = () => {
     return []
   }
 
-  // init
   useEffect(() => {
     if (!hasSetAppConfig) {
       setAppUnavailable(true)
@@ -229,31 +263,29 @@ const Main: FC<IMainProps> = () => {
     (async () => {
       try {
         const [conversationData, appParams] = await Promise.all([fetchConversations(), fetchAppParams()])
-        // handle current conversation id
         const { data: conversations, error } = conversationData as { data: ConversationItem[], error: string }
         if (error) {
           Toast.notify({ type: 'error', message: error })
           throw new Error(error)
-          return
         }
-        const _conversationId = getConversationIdFromStorage(APP_ID)
-        const currentConversation = conversations.find(item => item.id === _conversationId)
+        const conversationId = getConversationIdFromStorage(APP_ID)
+        const currentConversation = conversations.find(item => item.id === conversationId)
         const isNotNewConversation = !!currentConversation
 
-        // fetch new conversation info
-        const { user_input_form, opening_statement: introduction, file_upload, system_parameters, suggested_questions = [] }: any = appParams
+        const { user_input_form, opening_statement: introduction, file_upload, system_parameters, suggested_questions: nextSuggestedQuestions = [] }: any = appParams
         setLocaleOnClient(APP_INFO.default_language, true)
         setNewConversationInfo({
           name: t('app.chat.newChatDefaultName'),
           introduction,
-          suggested_questions,
+          suggested_questions: nextSuggestedQuestions,
         })
         if (isNotNewConversation) {
           setExistConversationInfo({
             name: currentConversation.name || t('app.chat.newChatDefaultName'),
             introduction,
-            suggested_questions,
+            suggested_questions: nextSuggestedQuestions,
           })
+          setIsLandingVisible(false)
         }
         const prompt_variables = userInputsFormToPromptVariables(user_input_form)
         setPromptConfig({
@@ -276,7 +308,7 @@ const Main: FC<IMainProps> = () => {
         })
         setConversationList(conversations as ConversationItem[])
 
-        if (isNotNewConversation) { setCurrConversationId(_conversationId, APP_ID, false) }
+        if (isNotNewConversation) { setCurrConversationId(conversationId, APP_ID, false) }
 
         setInited(true)
       }
@@ -293,7 +325,7 @@ const Main: FC<IMainProps> = () => {
   }, [])
 
   const [isResponding, { setTrue: setRespondingTrue, setFalse: setRespondingFalse }] = useBoolean(false)
-  const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const [, setAbortController] = useState<AbortController | null>(null)
   const { notify } = Toast
   const logError = (message: string) => {
     notify({ type: 'error', message })
@@ -301,13 +333,11 @@ const Main: FC<IMainProps> = () => {
 
   const checkCanSend = () => {
     if (currConversationId !== '-1') { return true }
-
     if (!currInputs || !promptConfig?.prompt_variables) { return true }
 
     let emptyRequiredInput = false
     promptConfig.prompt_variables.forEach((item) => {
-      if (item.required && !currInputs[item.key])
-        emptyRequiredInput = true
+      if (item.required && !currInputs[item.key]) { emptyRequiredInput = true }
     })
 
     if (emptyRequiredInput) {
@@ -317,12 +347,8 @@ const Main: FC<IMainProps> = () => {
     return true
   }
 
-  const [controlFocus, setControlFocus] = useState(0)
-  const [openingSuggestedQuestions, setOpeningSuggestedQuestions] = useState<string[]>([])
-  const [messageTaskId, setMessageTaskId] = useState('')
-  const [hasStopResponded, setHasStopResponded, getHasStopResponded] = useGetState(false)
-  const [isRespondingConIsCurrCon, setIsRespondingConCurrCon, getIsRespondingConIsCurrCon] = useGetState(true)
-  const [userQuery, setUserQuery] = useState('')
+  const [, setMessageTaskId] = useState('')
+  const [, setIsRespondingConCurrCon] = useGetState(true)
 
   const updateCurrentQA = ({
     responseItem,
@@ -335,12 +361,10 @@ const Main: FC<IMainProps> = () => {
     placeholderAnswerId: string
     questionItem: ChatItem
   }) => {
-    // closesure new list is outdated.
     const newListWithAnswer = produce(
       getChatList().filter(item => item.id !== responseItem.id && item.id !== placeholderAnswerId),
       (draft) => {
         if (!draft.find(item => item.id === questionId)) { draft.push({ ...questionItem }) }
-
         draft.push({ ...responseItem })
       },
     )
@@ -366,9 +390,7 @@ const Main: FC<IMainProps> = () => {
       Object.keys(currInputs).forEach((key) => {
         const value = currInputs[key]
         if (value.supportFileType) { toServerInputs[key] = transformToServerFile(value) }
-
         else if (value[0]?.supportFileType) { toServerInputs[key] = value.map((item: any) => transformToServerFile(item)) }
-
         else { toServerInputs[key] = value }
       })
     }
@@ -391,7 +413,6 @@ const Main: FC<IMainProps> = () => {
       })
     }
 
-    // question
     const questionId = `question-${Date.now()}`
     const questionItem = {
       id: questionId,
@@ -407,12 +428,9 @@ const Main: FC<IMainProps> = () => {
       isAnswer: true,
     }
 
-    const newList = [...getChatList(), questionItem, placeholderAnswerItem]
-    setChatList(newList)
+    setChatList([...getChatList(), questionItem, placeholderAnswerItem])
 
     let isAgentMode = false
-
-    // answer
     const responseItem: ChatItem = {
       id: `${Date.now()}`,
       content: '',
@@ -427,16 +445,16 @@ const Main: FC<IMainProps> = () => {
 
     setRespondingTrue()
     sendChatMessage(data, {
-      getAbortController: (abortController) => {
-        setAbortController(abortController)
+      getAbortController: (nextAbortController) => {
+        setAbortController(nextAbortController)
       },
-      onData: (message: string, isFirstMessage: boolean, { conversationId: newConversationId, messageId, taskId }: any) => {
+      onData: (nextMessage: string, isFirstMessage: boolean, { conversationId: newConversationId, messageId, taskId }: any) => {
         if (!isAgentMode) {
-          responseItem.content = responseItem.content + message
+          responseItem.content += nextMessage
         }
         else {
-          const lastThought = responseItem.agent_thoughts?.[responseItem.agent_thoughts?.length - 1]
-          if (lastThought) { lastThought.thought = lastThought.thought + message } // need immer setAutoFreeze
+          const lastThought = responseItem.agent_thoughts?.[responseItem.agent_thoughts.length - 1]
+          if (lastThought) { lastThought.thought += nextMessage }
         }
         if (messageId && !hasSetResponseId) {
           responseItem.id = messageId
@@ -446,7 +464,6 @@ const Main: FC<IMainProps> = () => {
         if (isFirstMessage && newConversationId) { tempNewConversationId = newConversationId }
 
         setMessageTaskId(taskId)
-        // has switched to other conversation
         if (prevTempNewConversationId !== getCurrConversationId()) {
           setIsRespondingConCurrCon(false)
           return
@@ -464,7 +481,6 @@ const Main: FC<IMainProps> = () => {
         if (getConversationIdChangeBecauseOfNew()) {
           const { data: allConversations }: any = await fetchConversations()
           const newItem: any = await generationConversationName(allConversations[0].id)
-
           const newAllConversations = produce(allConversations, (draft: any) => {
             draft[0].name = newItem.name
           })
@@ -477,7 +493,7 @@ const Main: FC<IMainProps> = () => {
         setRespondingFalse()
       },
       onFile(file) {
-        const lastThought = responseItem.agent_thoughts?.[responseItem.agent_thoughts?.length - 1]
+        const lastThought = responseItem.agent_thoughts?.[responseItem.agent_thoughts.length - 1]
         if (lastThought) { lastThought.message_files = [...(lastThought as any).message_files, { ...file }] }
 
         updateCurrentQA({
@@ -494,13 +510,11 @@ const Main: FC<IMainProps> = () => {
           response.id = thought.message_id
           hasSetResponseId = true
         }
-        // responseItem.id = thought.message_id;
         if (response.agent_thoughts.length === 0) {
           response.agent_thoughts.push(thought)
         }
         else {
           const lastThought = response.agent_thoughts[response.agent_thoughts.length - 1]
-          // thought changed but still the same thought, so update.
           if (lastThought.id === thought.id) {
             thought.thought = lastThought.thought
             thought.message_files = lastThought.message_files
@@ -510,7 +524,6 @@ const Main: FC<IMainProps> = () => {
             responseItem.agent_thoughts!.push(thought)
           }
         }
-        // has switched to other conversation
         if (prevTempNewConversationId !== getCurrConversationId()) {
           setIsRespondingConCurrCon(false)
           return false
@@ -534,7 +547,6 @@ const Main: FC<IMainProps> = () => {
             getChatList().filter(item => item.id !== responseItem.id && item.id !== placeholderAnswerId),
             (draft) => {
               if (!draft.find(item => item.id === questionId)) { draft.push({ ...questionItem }) }
-
               draft.push({
                 ...responseItem,
               })
@@ -543,13 +555,10 @@ const Main: FC<IMainProps> = () => {
           setChatList(newListWithAnswer)
           return
         }
-        // not support show citation
-        // responseItem.citation = messageEnd.retriever_resources
         const newListWithAnswer = produce(
           getChatList().filter(item => item.id !== responseItem.id && item.id !== placeholderAnswerId),
           (draft) => {
             if (!draft.find(item => item.id === questionId)) { draft.push({ ...questionItem }) }
-
             draft.push({ ...responseItem })
           },
         )
@@ -560,20 +569,17 @@ const Main: FC<IMainProps> = () => {
           getChatList(),
           (draft) => {
             const current = draft.find(item => item.id === messageReplace.id)
-
             if (current) { current.content = messageReplace.answer }
           },
         ))
       },
       onError() {
         setRespondingFalse()
-        // role back placeholder answer
         setChatList(produce(getChatList(), (draft) => {
           draft.splice(draft.findIndex(item => item.id === placeholderAnswerId), 1)
         }))
       },
-      onWorkflowStarted: ({ workflow_run_id, task_id }) => {
-        // taskIdRef.current = task_id
+      onWorkflowStarted: ({ workflow_run_id }) => {
         responseItem.workflow_run_id = workflow_run_id
         responseItem.workflowProcess = {
           status: WorkflowRunningStatus.Running,
@@ -611,9 +617,9 @@ const Main: FC<IMainProps> = () => {
         const currentIndex = responseItem.workflowProcess!.tracing!.findIndex(item => item.node_id === data.node_id)
         responseItem.workflowProcess!.tracing[currentIndex] = data as any
         setChatList(produce(getChatList(), (draft) => {
-          const currentIndex = draft.findIndex(item => item.id === responseItem.id)
-          draft[currentIndex] = {
-            ...draft[currentIndex],
+          const draftCurrentIndex = draft.findIndex(item => item.id === responseItem.id)
+          draft[draftCurrentIndex] = {
+            ...draft[draftCurrentIndex],
             ...responseItem,
           }
         }))
@@ -642,63 +648,327 @@ const Main: FC<IMainProps> = () => {
       <Sidebar
         list={conversationList}
         onCurrentIdChange={handleConversationIdChange}
+        onDashboardClick={handleGoDashboard}
+        onChatbotClick={handleGoChatbot}
+        mode={hasSetInputs ? 'chat' : 'dashboard'}
         currentId={currConversationId}
-        copyRight={APP_INFO.copyright || APP_INFO.title}
       />
     )
   }
 
-  if (appUnavailable) { return <AppUnavailable isUnknownReason={isUnknownReason} errMessage={!hasSetAppConfig ? 'Please set APP_ID and API_KEY in config/index.tsx' : ''} /> }
+  const handleGetStarted = () => {
+    setIsLandingVisible(false)
+  }
 
+  const handleStartFromHome = () => {
+    const query = homeQuery.trim()
+    if (!query) {
+      logError(t('app.errorMessage.valueOfVarRequired'))
+      return
+    }
+
+    if (hasPromptVariables) {
+      handleStartChat({})
+      return
+    }
+
+    setPendingHomeQuery(query)
+    handleStartChat({})
+  }
+
+  const handleFeatureComingSoon = (title: string) => {
+    setComingSoonFeature(prev => prev === title ? null : title)
+  }
+
+  const quickActions = [
+    {
+      title: '规范查询',
+      description: '提供面向绿地规划场景的规范查询，支持按项目类型与关键词快速检索核心标准并精准定位原文出处，高效获取规范依据并理解条文含义。',
+      icon: MagnifyingGlassIcon,
+      color: 'text-[#65a86f]',
+      bg: 'bg-[#edf9ef]',
+    },
+    {
+      title: '指标计算',
+      description: '计算绿地规划常见指标，输入基础场地数据即可一键输出关键规划指标，并同步比对相关规范要求为您评估设计方案的合理性。',
+      icon: CalculatorIcon,
+      color: 'text-[#ff8a1f]',
+      bg: 'bg-[#fff4e8]',
+    },
+    {
+      title: '依据生成',
+      description: '将零散的规范条文自动转化为可直接引用的专业文段，提取规范依据摘要与项目设计原则，一键生成符合格式要求的设计说明与汇报大纲。',
+      icon: DocumentTextIcon,
+      color: 'text-[#4b88ff]',
+      bg: 'bg-[#edf4ff]',
+    },
+    {
+      title: '项目辅助',
+      description: '依托历年真实课程作业与项目案例提供情境化的规范指导，解答常见问题并预判规范风险。',
+      icon: FolderIcon,
+      color: 'text-[#9b59ff]',
+      bg: 'bg-[#f4edff]',
+    },
+  ]
+
+  if (appUnavailable) { return <AppUnavailable isUnknownReason={isUnknownReason} errMessage={!hasSetAppConfig ? 'Please set APP_ID and API_KEY in config/index.tsx' : ''} /> }
   if (!APP_ID || !APP_INFO || !promptConfig) { return <Loading type='app' /> }
 
-  return (
-    <div className='bg-gray-100'>
-      <Header
-        title={APP_INFO.title}
-        isMobile={isMobile}
-        onShowSideBar={showSidebar}
-        onCreateNewChat={() => handleConversationIdChange('-1')}
-      />
-      <div className="flex rounded-t-2xl bg-white overflow-hidden">
-        {/* sidebar */}
-        {!isMobile && renderSidebar()}
-        {isMobile && isShowSidebar && (
-          <div className='fixed inset-0 z-50' style={{ backgroundColor: 'rgba(35, 56, 118, 0.2)' }} onClick={hideSidebar} >
-            <div className='inline-block' onClick={e => e.stopPropagation()}>
-              {renderSidebar()}
+  if (isLandingVisible) {
+    return (
+      <div className='relative min-h-screen overflow-hidden bg-white px-6 py-6 text-slate-900'>
+        <div className='relative mx-auto flex min-h-[calc(100vh_-_3rem)] w-full max-w-[1120px] items-center justify-center'>
+          <div className='w-full max-w-[760px] -translate-y-[28px] text-center'>
+            <div className='mx-auto flex w-fit flex-col items-center'>
+              <Image src='/brand-icon.png' alt='Brand icon' width={84} height={84} priority className='h-[84px] w-[84px] object-contain' />
+            </div>
+
+            <h1 className='mt-[46px] text-[58px] font-semibold tracking-[-0.055em] text-[#151515] md:text-[58px]'>
+              GreenBot
+            </h1>
+            <p className='mt-[16px] text-[23px] font-normal text-[#2b2b2b]'>
+              AI Agent for Landscape Planning
+            </p>
+            <p className='mx-auto mt-[18px] max-w-[640px] text-[19px] leading-[1.5] text-[#333333]'>
+              From regulations to design decisions — in one workflow.
+            </p>
+
+            <div className='mt-[58px] flex flex-col items-center'>
+              <button
+                className='rounded-full bg-[#69be45] px-[30px] py-[16px] text-[18px] font-medium text-white shadow-[0_20px_45px_-22px_rgba(141,212,88,0.78)] transition hover:bg-[#60b03f]'
+                onClick={handleGetStarted}
+              >
+                Get Started →
+              </button>
             </div>
           </div>
-        )}
-        {/* main */}
-        <div className='flex-grow flex flex-col h-[calc(100vh_-_3rem)] overflow-y-auto'>
-          <ConfigSence
-            conversationName={conversationName}
-            hasSetInputs={hasSetInputs}
-            isPublicVersion={isShowPrompt}
-            siteInfo={APP_INFO}
-            promptConfig={promptConfig}
-            onStartChat={handleStartChat}
-            canEditInputs={canEditInputs}
-            savedInputs={currInputs as Record<string, any>}
-            onInputsChange={setCurrInputs}
-          ></ConfigSence>
-
-          {
-            hasSetInputs && (
-              <div className='relative grow pc:w-[794px] max-w-full mobile:w-full pb-[180px] mx-auto mb-3.5' ref={chatListDomRef}>
-                <Chat
-                  chatList={chatList}
-                  onSend={handleSend}
-                  onFeedback={handleFeedback}
-                  isResponding={isResponding}
-                  checkCanSend={checkCanSend}
-                  visionConfig={visionConfig}
-                  fileConfig={fileConfig}
-                />
-              </div>)
-          }
         </div>
+      </div>
+    )
+  }
+
+  if (!hasSetInputs) {
+    if (isMobile) {
+      return (
+        <div className='h-screen overflow-hidden bg-[#fcfcfb] text-[#1f2937]'>
+          <div className='flex h-full flex-col overflow-hidden'>
+            <div className='border-b border-[#eceff3] bg-white px-5 pb-4 pt-5'>
+              <div className='flex items-center justify-between'>
+                <div className='flex items-center gap-3'>
+                  <Image src='/brand-icon.png' alt='greenbot' width={28} height={28} className='h-7 w-7 object-contain' />
+                  <span className='text-[22px] font-semibold tracking-[-0.03em] text-[#171717]'>greenbot</span>
+                </div>
+                <button
+                  className='flex h-11 items-center justify-center gap-2 rounded-full bg-[#74a86f] px-5 text-[15px] font-semibold text-white shadow-[0_12px_24px_-18px_rgba(116,168,111,0.85)] transition hover:bg-[#6a9b66]'
+                  onClick={() => handleConversationIdChange('-1')}
+                >
+                  <PlusIcon className='h-4 w-4' />
+                  <span>New Chat</span>
+                </button>
+              </div>
+              <div className='mt-4 flex items-center gap-5 text-[14px] text-[#667085]'>
+                <div className='flex items-center gap-2'>
+                  <QuestionMarkCircleIcon className='h-4 w-4' />
+                  <span>Help</span>
+                </div>
+                <div className='flex items-center gap-2'>
+                  <Cog6ToothIcon className='h-4 w-4' />
+                  <span>Settings</span>
+                </div>
+              </div>
+            </div>
+
+            <div className='flex-1 overflow-y-auto'>
+              <div className='mx-auto w-full max-w-xl px-5 pb-6 pt-6'>
+                <div className='text-[15px] font-medium text-[#6b7280]'>Welcome to Greenbot AI</div>
+                <h1 className='mt-2 text-[34px] font-semibold leading-[1.05] tracking-[-0.04em] text-[#111827]'>
+                  Ask me anything{'\u2014'}I&apos;m here to help!
+                </h1>
+
+                <div className='mt-5 overflow-hidden rounded-[22px] border border-[#e5e7eb] bg-white shadow-[0_20px_40px_-32px_rgba(15,23,42,0.16)]'>
+                  <textarea
+                    value={homeQuery}
+                    onChange={e => setHomeQuery(e.target.value)}
+                    placeholder='Whatever you need, just ask Greenbot!'
+                    className='h-[140px] w-full resize-none border-0 px-5 py-5 text-[16px] text-[#111827] outline-none placeholder:text-[14px] placeholder:text-[#a8b0c2]'
+                  />
+                  <div className='flex items-center justify-between border-t border-[#eceff3] px-5 py-4'>
+                    <div className='flex items-center gap-2.5 text-[14px] text-[#344054]'>
+                      <PaperClipIcon className='h-4 w-4 text-[#98a2b3]' />
+                      <span>Attach File</span>
+                    </div>
+                    <button
+                      className='flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#74a86f] text-[20px] font-semibold text-white transition hover:bg-[#689963]'
+                      onClick={handleStartFromHome}
+                    >
+                      {`>`}
+                    </button>
+                  </div>
+                </div>
+
+                <div className='mt-7'>
+                  <div className='text-[18px] font-semibold text-[#111827]'>Explore by ready prompt</div>
+                  <div className='mt-4 space-y-4'>
+                    {quickActions.map((item) => {
+                      const Icon = item.icon
+                      return (
+                        <button
+                          type='button'
+                          key={item.title}
+                          onClick={() => handleFeatureComingSoon(item.title)}
+                          className='relative w-full rounded-[20px] border border-[#eceff3] bg-white px-5 py-5 text-left shadow-[0_18px_40px_-34px_rgba(15,23,42,0.14)] transition hover:-translate-y-[1px] hover:shadow-[0_22px_44px_-32px_rgba(15,23,42,0.18)]'
+                        >
+                          {comingSoonFeature === item.title && (
+                            <div className='pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[20px] bg-white/84 backdrop-blur-[1px]'>
+                              <div className='rounded-full bg-[#2f9e44] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_24px_-18px_rgba(47,158,68,0.8)]'>
+                                敬请期待
+                              </div>
+                            </div>
+                          )}
+                          <div className='grid min-h-[174px] grid-rows-[56px_40px_1fr] content-start'>
+                            <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[16px] ${item.bg}`}>
+                              <Icon className={`h-6 w-6 ${item.color}`} />
+                            </div>
+                            <div className='flex items-start pt-8 text-[16px] font-semibold leading-[1.25] text-[#111827]'>{item.title}</div>
+                            <p className='pt-6 text-[14px] leading-7 text-[#667085]'>{item.description}</p>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className='h-screen overflow-hidden bg-white text-[#1f2937]'>
+        <div className='flex h-full overflow-hidden bg-white'>
+          <Sidebar
+            list={conversationList}
+            onCurrentIdChange={handleConversationIdChange}
+            onDashboardClick={handleGoDashboard}
+            onChatbotClick={handleGoChatbot}
+            mode='dashboard'
+            currentId={currConversationId}
+          />
+
+          <main className='flex min-w-0 flex-1 overflow-y-auto bg-white'>
+            <div className='mx-auto w-full max-w-6xl px-[44px] pt-[42px] pb-[16px]'>
+                <div className='text-[17px] font-medium text-[#6b7280]'>Welcome to Greenbot AI</div>
+                <h1 className='mt-[8px] text-[46px] font-semibold tracking-[-0.045em] text-[#111827]'>
+                  Ask me anything{'\u2014'}I&apos;m here to help!
+                </h1>
+
+                <div className='mt-[24px] overflow-hidden rounded-[24px] border border-[#e5e7eb] bg-white shadow-[0_20px_40px_-32px_rgba(15,23,42,0.16)]'>
+                  <textarea
+                    value={homeQuery}
+                    onChange={e => setHomeQuery(e.target.value)}
+                    placeholder='Whatever you need, just ask Greenbot!'
+                    className='h-[164px] w-full resize-none border-0 px-8 py-7 text-[17px] text-[#111827] outline-none placeholder:text-[15px] placeholder:text-[#a8b0c2]'
+                  />
+                  <div className='flex items-center justify-between border-t border-[#eceff3] px-7 py-4'>
+                    <div className='flex items-center gap-2.5 text-[14px] text-[#344054]'>
+                      <PaperClipIcon className='h-4 w-4 text-[#98a2b3]' />
+                      <span>Attach File</span>
+                    </div>
+                    <div className='flex items-center'>
+                      <button
+                        className='flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#74a86f] text-[20px] font-semibold text-white transition hover:bg-[#689963]'
+                        onClick={handleStartFromHome}
+                      >
+                        {`>`}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className='mt-[28px]'>
+                  <div className='text-[18px] font-semibold text-[#111827]'>Explore by ready prompt</div>
+                  <div className='mt-5 grid grid-cols-4 gap-5'>
+                    {quickActions.map((item) => {
+                      const Icon = item.icon
+                      return (
+                        <button
+                          type='button'
+                          key={item.title}
+                          onClick={() => handleFeatureComingSoon(item.title)}
+                          className='relative min-h-[318px] rounded-[22px] border border-[#eceff3] bg-white px-5 py-5 text-left shadow-[0_18px_40px_-34px_rgba(15,23,42,0.14)] transition hover:-translate-y-[1px] hover:shadow-[0_22px_44px_-32px_rgba(15,23,42,0.18)]'
+                        >
+                          {comingSoonFeature === item.title && (
+                            <div className='pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[22px] bg-white/84 backdrop-blur-[1px]'>
+                              <div className='rounded-full bg-[#2f9e44] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_24px_-18px_rgba(47,158,68,0.8)]'>
+                                敬请期待
+                              </div>
+                            </div>
+                          )}
+                          <div className='grid min-h-[268px] grid-rows-[56px_40px_1fr] content-start'>
+                            <div className={`flex h-14 w-14 items-center justify-center rounded-[16px] ${item.bg}`}>
+                              <Icon className={`h-6 w-6 ${item.color}`} />
+                            </div>
+                            <div className='flex items-start pt-8 text-[16px] font-semibold leading-[1.25] text-[#111827]'>{item.title}</div>
+                            <p className='pt-6 text-[14px] leading-8 text-[#667085]'>{item.description}</p>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className='h-screen overflow-hidden bg-white'>
+      <div className="flex h-full overflow-hidden bg-white">
+          {!isMobile && renderSidebar()}
+          {isMobile && isShowSidebar && (
+            <div className='fixed inset-0 z-50 bg-slate-900/20 backdrop-blur-sm' onClick={hideSidebar} >
+              <div className='inline-block h-full' onClick={e => e.stopPropagation()}>
+                {renderSidebar()}
+              </div>
+            </div>
+          )}
+          <div className='flex min-w-0 flex-grow flex-col overflow-y-auto bg-white'>
+
+            {hasSetInputs && (
+              <div className='mx-auto w-full max-w-5xl px-8 pt-8'>
+                <ConfigSence
+                  conversationName={conversationName}
+                  hasSetInputs={hasSetInputs}
+                  isPublicVersion={isShowPrompt}
+                  siteInfo={APP_INFO}
+                  promptConfig={promptConfig}
+                  onStartChat={handleStartChat}
+                  canEditInputs={canEditInputs}
+                  savedInputs={currInputs as Record<string, any>}
+                  onInputsChange={setCurrInputs}
+                />
+              </div>
+            )}
+
+            {
+              hasSetInputs && (
+                <div className='relative mx-auto w-full max-w-5xl flex-1 px-8 pb-4' ref={chatListDomRef}>
+                    <Chat
+                      chatList={chatList}
+                      onSend={handleSend}
+                      onFeedback={handleFeedback}
+                      isResponding={isResponding}
+                      checkCanSend={checkCanSend}
+                      visionConfig={visionConfig}
+                      fileConfig={fileConfig}
+                    />
+                </div>
+              )
+            }
+          </div>
       </div>
     </div>
   )
