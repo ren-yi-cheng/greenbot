@@ -34,8 +34,7 @@
 }
 
 .answer::before {
-  left: 0;
-  background: url(./icons/answer.svg) no-repeat;
+  display: none;
 }
 
 .answerWrap .itemOperation {

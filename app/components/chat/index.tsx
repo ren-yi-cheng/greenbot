@@ -32,6 +32,7 @@ export interface IChatProps {
   controlClearQuery?: number
   visionConfig?: VisionSettings
   fileConfig?: FileUpload
+  isMobile?: boolean
 }
 
 const Chat: FC<IChatProps> = ({
@@ -46,6 +47,7 @@ const Chat: FC<IChatProps> = ({
   controlClearQuery,
   visionConfig,
   fileConfig,
+  isMobile = false,
 }) => {
   const { t } = useTranslation()
   const { notify } = Toast
@@ -156,8 +158,8 @@ const Chat: FC<IChatProps> = ({
   }
 
   return (
-    <div className={cn(!feedbackDisabled && 'px-6 md:px-8', 'flex h-full min-h-0 flex-col')}>
-      <div className="flex-1 space-y-8 overflow-y-auto pb-6 pt-6">
+    <div className={cn(!feedbackDisabled && (isMobile ? 'px-3' : 'px-6 md:px-8'), 'flex h-full min-h-0 flex-col')}>
+      <div className={cn('flex-1 overflow-y-auto', isMobile ? 'space-y-6 pb-4 pt-3' : 'space-y-8 pb-6 pt-6')}>
         {chatList.map((item) => {
           if (item.isAnswer) {
             const isLast = item.id === chatList[chatList.length - 1].id
@@ -186,9 +188,12 @@ const Chat: FC<IChatProps> = ({
       </div>
 
       {!isHideSendInput && (
-        <div className="shrink-0 pb-5 pt-3">
-          <div className="mx-auto max-w-[980px]">
-            <div className="rounded-[20px] border border-[#daddd7] bg-white px-4 py-3 shadow-[0_20px_42px_-30px_rgba(15,23,42,0.16)]">
+        <div className={cn('shrink-0', isMobile ? 'pb-4 pt-2' : 'pb-5 pt-3')}>
+          <div className={cn('mx-auto', isMobile ? 'max-w-full' : 'max-w-[980px]')}>
+            <div className={cn(
+              'border border-[#daddd7] bg-white shadow-[0_20px_42px_-30px_rgba(15,23,42,0.16)]',
+              isMobile ? 'rounded-[24px] px-4 py-3' : 'rounded-[20px] px-4 py-3',
+            )}>
               {visionConfig?.enabled && (
                 <div className="mb-2">
                   <div className="flex items-center gap-3">
@@ -221,9 +226,14 @@ const Chat: FC<IChatProps> = ({
                 </div>
               )}
 
-              <div className="relative rounded-[16px] border border-[#edf0ea] bg-[#fbfcfa]">
+              <div className="relative">
                 <Textarea
-                  className="block w-full max-h-none resize-none appearance-none bg-transparent px-4 py-3 pr-[106px] text-[15px] leading-7 text-slate-800 outline-none"
+                  className={cn(
+                    'block w-full max-h-none resize-none appearance-none bg-transparent text-slate-800 outline-none',
+                    isMobile
+                      ? 'px-3 py-3 pr-[84px] text-[16px] leading-7'
+                      : 'px-4 py-3 pr-[106px] text-[15px] leading-7',
+                  )}
                   value={query}
                   onChange={handleContentChange}
                   onKeyUp={handleKeyUp}
@@ -231,8 +241,8 @@ const Chat: FC<IChatProps> = ({
                   autoSize={{ minRows: 1, maxRows: 6 }}
                   placeholder={t('app.chat.startChat')}
                 />
-                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                  <div className="pointer-events-auto flex items-center gap-3">
+                <div className={cn('pointer-events-none absolute inset-y-0 flex items-center', isMobile ? 'right-2' : 'right-3')}>
+                  <div className={cn('pointer-events-auto flex items-center', isMobile ? 'gap-2' : 'gap-3')}>
                     <div className={`${s.count} text-xs leading-5 text-slate-400`}>{query.trim().length}</div>
                     <Tooltip
                       selector="send-tip"
@@ -257,7 +267,7 @@ const Chat: FC<IChatProps> = ({
               </div>
             </div>
 
-            <div className="mt-2 text-center text-[12px] text-[#b3b8bf]">
+            <div className={cn('text-center text-[12px] text-[#b3b8bf]', isMobile ? 'mt-2 pb-1' : 'mt-2')}>
               AI may produce inaccurate information. Please verify important details carefully.
             </div>
           </div>

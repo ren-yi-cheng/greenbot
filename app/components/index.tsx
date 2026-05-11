@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import produce, { setAutoFreeze } from 'immer'
 import { useBoolean, useGetState } from 'ahooks'
 import {
+  Bars3Icon,
   CalculatorIcon,
   Cog6ToothIcon,
   DocumentTextIcon,
@@ -13,7 +14,6 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
   QuestionMarkCircleIcon,
-  PaperClipIcon,
 } from '@heroicons/react/24/outline'
 import useConversation from '@/hooks/use-conversation'
 import Toast from '@/app/components/base/toast'
@@ -108,6 +108,15 @@ const Main: FC<IMainProps> = () => {
   const conversationName = currConversationInfo?.name || t('app.chat.newChatDefaultName') as string
   const conversationIntroduction = currConversationInfo?.introduction || ''
   const suggestedQuestions = currConversationInfo?.suggested_questions || []
+  const homePlaceholder = (() => {
+    if (!conversationIntroduction)
+      return 'Whatever you need, just ask Greenbot!'
+
+    if (currInputs && promptConfig?.prompt_variables?.length)
+      return replaceVarWithValues(conversationIntroduction, promptConfig.prompt_variables, currInputs)
+
+    return conversationIntroduction
+  })()
 
   const handleConversationSwitch = () => {
     if (!inited) { return }
@@ -211,7 +220,6 @@ const Main: FC<IMainProps> = () => {
   }, [chatList, currConversationId])
 
   const canEditInputs = !chatList.some(item => item.isAnswer === false) && isNewConversation
-
   useEffect(() => {
     if (!pendingHomeQuery || !isChatStarted)
       return
@@ -751,52 +759,54 @@ const Main: FC<IMainProps> = () => {
     if (isMobile) {
       return (
         <div className='h-screen overflow-hidden bg-[#fcfcfb] text-[#1f2937]'>
-          <div className='flex h-full flex-col overflow-hidden'>
-            <div className='border-b border-[#eceff3] bg-white px-5 pb-4 pt-5'>
+          <div className='relative flex h-full flex-col overflow-hidden'>
+            {isShowSidebar && (
+              <div className='absolute inset-0 z-40 bg-black/30 backdrop-blur-[1px]' onClick={hideSidebar}>
+                <div className='h-full w-[316px] bg-white shadow-[0_24px_48px_-24px_rgba(15,23,42,0.3)]' onClick={e => e.stopPropagation()}>
+                  <Sidebar
+                    list={conversationList}
+                    onCurrentIdChange={handleConversationIdChange}
+                    onDashboardClick={handleGoDashboard}
+                    onChatbotClick={handleGoChatbot}
+                    mode='dashboard'
+                    currentId={currConversationId}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className='bg-white px-4 pb-3 pt-6'>
               <div className='flex items-center justify-between'>
                 <div className='flex items-center gap-3'>
-                  <Image src='/brand-icon.png' alt='greenbot' width={28} height={28} className='h-7 w-7 object-contain' />
-                  <span className='text-[22px] font-semibold tracking-[-0.03em] text-[#171717]'>greenbot</span>
+                  <Image src='/brand-icon.png' alt='greenbot' width={32} height={32} className='h-8 w-8 object-contain' />
+                  <span className='text-[18px] font-semibold tracking-[-0.04em] text-[#171717]'>greenbot</span>
                 </div>
                 <button
-                  className='flex h-11 items-center justify-center gap-2 rounded-full bg-[#74a86f] px-5 text-[15px] font-semibold text-white shadow-[0_12px_24px_-18px_rgba(116,168,111,0.85)] transition hover:bg-[#6a9b66]'
-                  onClick={() => handleConversationIdChange('-1')}
+                  type='button'
+                  className='flex h-10 w-10 items-center justify-center rounded-full text-[#171717]'
+                  onClick={showSidebar}
+                  aria-label='Open menu'
                 >
-                  <PlusIcon className='h-4 w-4' />
-                  <span>New Chat</span>
+                  <Bars3Icon className='h-7 w-7' />
                 </button>
-              </div>
-              <div className='mt-4 flex items-center gap-5 text-[14px] text-[#667085]'>
-                <div className='flex items-center gap-2'>
-                  <QuestionMarkCircleIcon className='h-4 w-4' />
-                  <span>Help</span>
-                </div>
-                <div className='flex items-center gap-2'>
-                  <Cog6ToothIcon className='h-4 w-4' />
-                  <span>Settings</span>
-                </div>
               </div>
             </div>
 
             <div className='flex-1 overflow-y-auto'>
-              <div className='mx-auto w-full max-w-xl px-5 pb-6 pt-6'>
+              <div className='mx-auto w-full max-w-xl px-3 pb-6 pt-2'>
                 <div className='text-[15px] font-medium text-[#6b7280]'>Welcome to Greenbot AI</div>
-                <h1 className='mt-2 text-[34px] font-semibold leading-[1.05] tracking-[-0.04em] text-[#111827]'>
+                <h1 className='mt-3 text-[38px] font-semibold leading-[1.1] tracking-[-0.05em] text-[#111827]'>
                   Ask me anything{'\u2014'}I&apos;m here to help!
                 </h1>
 
-                <div className='mt-5 overflow-hidden rounded-[22px] border border-[#e5e7eb] bg-white shadow-[0_20px_40px_-32px_rgba(15,23,42,0.16)]'>
+                <div className='mt-8 overflow-hidden rounded-[28px] border border-[#e5e7eb] bg-white shadow-[0_20px_40px_-32px_rgba(15,23,42,0.16)]'>
                   <textarea
                     value={homeQuery}
                     onChange={e => setHomeQuery(e.target.value)}
-                    placeholder='Whatever you need, just ask Greenbot!'
-                    className='h-[140px] w-full resize-none border-0 px-5 py-5 text-[16px] text-[#111827] outline-none placeholder:text-[14px] placeholder:text-[#a8b0c2]'
+                    placeholder={homePlaceholder}
+                    className='h-[156px] w-full resize-none border-0 px-6 py-6 text-[16px] text-[#111827] outline-none placeholder:text-[15px] placeholder:text-[#a8b0c2]'
                   />
-                  <div className='flex items-center justify-between border-t border-[#eceff3] px-5 py-4'>
-                    <div className='flex items-center gap-2.5 text-[14px] text-[#344054]'>
-                      <PaperClipIcon className='h-4 w-4 text-[#98a2b3]' />
-                      <span>Attach File</span>
-                    </div>
+                  <div className='flex items-center justify-end px-6 py-4'>
                     <button
                       className='flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#74a86f] text-[20px] font-semibold text-white transition hover:bg-[#689963]'
                       onClick={handleStartFromHome}
@@ -806,9 +816,9 @@ const Main: FC<IMainProps> = () => {
                   </div>
                 </div>
 
-                <div className='mt-7'>
-                  <div className='text-[18px] font-semibold text-[#111827]'>Explore by ready prompt</div>
-                  <div className='mt-4 space-y-4'>
+                <div className='mt-12'>
+                  <div className='text-[17px] font-semibold text-[#111827]'>Explore by ready prompt</div>
+                  <div className='mt-6 space-y-5'>
                     {quickActions.map((item) => {
                       const Icon = item.icon
                       return (
@@ -827,9 +837,9 @@ const Main: FC<IMainProps> = () => {
                           )}
                           <div className='grid min-h-[174px] grid-rows-[56px_40px_1fr] content-start'>
                             <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[16px] ${item.bg}`}>
-                              <Icon className={`h-6 w-6 ${item.color}`} />
+                              <Icon className={`h-5 w-5 ${item.color}`} />
                             </div>
-                            <div className='flex items-start pt-8 text-[16px] font-semibold leading-[1.25] text-[#111827]'>{item.title}</div>
+                            <div className='flex items-start pt-6 text-[15px] font-semibold leading-[1.25] text-[#111827]'>{item.title}</div>
                             <p className='pt-6 text-[14px] leading-7 text-[#667085]'>{item.description}</p>
                           </div>
                         </button>
@@ -857,24 +867,20 @@ const Main: FC<IMainProps> = () => {
           />
 
           <main className='flex min-w-0 flex-1 overflow-y-auto bg-white'>
-            <div className='mx-auto w-full max-w-6xl px-[44px] pt-[42px] pb-[16px]'>
-                <div className='text-[17px] font-medium text-[#6b7280]'>Welcome to Greenbot AI</div>
-                <h1 className='mt-[8px] text-[46px] font-semibold tracking-[-0.045em] text-[#111827]'>
+            <div className='mx-auto w-full max-w-6xl px-[40px] pt-[28px] pb-[12px]'>
+                <div className='text-[15px] font-medium text-[#6b7280]'>Welcome to Greenbot AI</div>
+                <h1 className='mt-[6px] text-[40px] font-semibold tracking-[-0.05em] text-[#111827]'>
                   Ask me anything{'\u2014'}I&apos;m here to help!
                 </h1>
 
-                <div className='mt-[24px] overflow-hidden rounded-[24px] border border-[#e5e7eb] bg-white shadow-[0_20px_40px_-32px_rgba(15,23,42,0.16)]'>
+                <div className='mt-[18px] overflow-hidden rounded-[22px] border border-[#e5e7eb] bg-white shadow-[0_20px_40px_-32px_rgba(15,23,42,0.16)]'>
                   <textarea
                     value={homeQuery}
                     onChange={e => setHomeQuery(e.target.value)}
-                    placeholder='Whatever you need, just ask Greenbot!'
-                    className='h-[164px] w-full resize-none border-0 px-8 py-7 text-[17px] text-[#111827] outline-none placeholder:text-[15px] placeholder:text-[#a8b0c2]'
+                    placeholder={homePlaceholder}
+                    className='h-[140px] w-full resize-none border-0 px-7 py-6 text-[16px] text-[#111827] outline-none placeholder:text-[15px] placeholder:text-[#a8b0c2]'
                   />
-                  <div className='flex items-center justify-between border-t border-[#eceff3] px-7 py-4'>
-                    <div className='flex items-center gap-2.5 text-[14px] text-[#344054]'>
-                      <PaperClipIcon className='h-4 w-4 text-[#98a2b3]' />
-                      <span>Attach File</span>
-                    </div>
+                  <div className='flex items-center justify-end px-7 py-3'>
                     <div className='flex items-center'>
                       <button
                         className='flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#74a86f] text-[20px] font-semibold text-white transition hover:bg-[#689963]'
@@ -886,9 +892,9 @@ const Main: FC<IMainProps> = () => {
                   </div>
                 </div>
 
-                <div className='mt-[28px]'>
-                  <div className='text-[18px] font-semibold text-[#111827]'>Explore by ready prompt</div>
-                  <div className='mt-5 grid grid-cols-4 gap-5'>
+                <div className='mt-[20px]'>
+                  <div className='text-[17px] font-semibold text-[#111827]'>Explore by ready prompt</div>
+                  <div className='mt-4 grid grid-cols-4 gap-4'>
                     {quickActions.map((item) => {
                       const Icon = item.icon
                       return (
@@ -896,21 +902,21 @@ const Main: FC<IMainProps> = () => {
                           type='button'
                           key={item.title}
                           onClick={() => handleFeatureComingSoon(item.title)}
-                          className='relative min-h-[318px] rounded-[22px] border border-[#eceff3] bg-white px-5 py-5 text-left shadow-[0_18px_40px_-34px_rgba(15,23,42,0.14)] transition hover:-translate-y-[1px] hover:shadow-[0_22px_44px_-32px_rgba(15,23,42,0.18)]'
+                          className='relative min-h-[272px] rounded-[20px] border border-[#eceff3] bg-white px-5 py-4 text-left shadow-[0_18px_40px_-34px_rgba(15,23,42,0.14)] transition hover:-translate-y-[1px] hover:shadow-[0_22px_44px_-32px_rgba(15,23,42,0.18)]'
                         >
                           {comingSoonFeature === item.title && (
-                            <div className='pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[22px] bg-white/84 backdrop-blur-[1px]'>
+                            <div className='pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[20px] bg-white/84 backdrop-blur-[1px]'>
                               <div className='rounded-full bg-[#2f9e44] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_24px_-18px_rgba(47,158,68,0.8)]'>
                                 敬请期待
                               </div>
                             </div>
                           )}
-                          <div className='grid min-h-[268px] grid-rows-[56px_40px_1fr] content-start'>
-                            <div className={`flex h-14 w-14 items-center justify-center rounded-[16px] ${item.bg}`}>
-                              <Icon className={`h-6 w-6 ${item.color}`} />
+                          <div className='grid min-h-[232px] grid-rows-[52px_34px_1fr] content-start'>
+                            <div className={`flex h-[52px] w-[52px] items-center justify-center rounded-[15px] ${item.bg}`}>
+                              <Icon className={`h-5 w-5 ${item.color}`} />
                             </div>
-                            <div className='flex items-start pt-8 text-[16px] font-semibold leading-[1.25] text-[#111827]'>{item.title}</div>
-                            <p className='pt-6 text-[14px] leading-8 text-[#667085]'>{item.description}</p>
+                            <div className='flex items-start pt-6 text-[15px] font-semibold leading-[1.25] text-[#111827]'>{item.title}</div>
+                            <p className='pt-4 text-[13px] leading-7 text-[#667085]'>{item.description}</p>
                           </div>
                         </button>
                       )
@@ -924,21 +930,45 @@ const Main: FC<IMainProps> = () => {
     )
   }
 
-  return (
-    <div className='h-screen overflow-hidden bg-white'>
-      <div className="flex h-full overflow-hidden bg-white">
-          {!isMobile && renderSidebar()}
-          {isMobile && isShowSidebar && (
-            <div className='fixed inset-0 z-50 bg-slate-900/20 backdrop-blur-sm' onClick={hideSidebar} >
-              <div className='inline-block h-full' onClick={e => e.stopPropagation()}>
-                {renderSidebar()}
+  if (isMobile) {
+    return (
+      <div className='h-screen overflow-hidden bg-[#fcfcfb] text-[#1f2937]'>
+        <div className='relative flex h-full flex-col overflow-hidden'>
+          {isShowSidebar && (
+            <div className='absolute inset-0 z-40 bg-black/30 backdrop-blur-[1px]' onClick={hideSidebar}>
+              <div className='h-full w-[316px] bg-white shadow-[0_24px_48px_-24px_rgba(15,23,42,0.3)]' onClick={e => e.stopPropagation()}>
+                <Sidebar
+                  list={conversationList}
+                  onCurrentIdChange={handleConversationIdChange}
+                  onDashboardClick={handleGoDashboard}
+                  onChatbotClick={handleGoChatbot}
+                  mode='chat'
+                  currentId={currConversationId}
+                />
               </div>
             </div>
           )}
-          <div className='flex min-w-0 flex-grow flex-col overflow-y-auto bg-white'>
 
+          <div className='bg-white px-4 pb-3 pt-6'>
+            <div className='flex items-center justify-between'>
+              <div className='flex items-center gap-3'>
+                <Image src='/brand-icon.png' alt='greenbot' width={32} height={32} className='h-8 w-8 object-contain' />
+                <span className='text-[18px] font-semibold tracking-[-0.04em] text-[#171717]'>greenbot</span>
+              </div>
+              <button
+                type='button'
+                className='flex h-10 w-10 items-center justify-center rounded-full text-[#171717]'
+                onClick={showSidebar}
+                aria-label='Open menu'
+              >
+                <Bars3Icon className='h-7 w-7' />
+              </button>
+            </div>
+          </div>
+
+          <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
             {hasSetInputs && (
-              <div className='mx-auto w-full max-w-5xl px-8 pt-8'>
+              <div className='shrink-0 px-3 pb-2 pt-1'>
                 <ConfigSence
                   conversationName={conversationName}
                   hasSetInputs={hasSetInputs}
@@ -953,22 +983,61 @@ const Main: FC<IMainProps> = () => {
               </div>
             )}
 
-            {
-              hasSetInputs && (
-                <div className='relative mx-auto w-full max-w-5xl flex-1 px-8 pb-4' ref={chatListDomRef}>
-                    <Chat
-                      chatList={chatList}
-                      onSend={handleSend}
-                      onFeedback={handleFeedback}
-                      isResponding={isResponding}
-                      checkCanSend={checkCanSend}
-                      visionConfig={visionConfig}
-                      fileConfig={fileConfig}
-                    />
-                </div>
-              )
-            }
+            {hasSetInputs && (
+              <div className='relative min-h-0 flex-1 pb-2' ref={chatListDomRef}>
+                <Chat
+                  chatList={chatList}
+                  onSend={handleSend}
+                  onFeedback={handleFeedback}
+                  isResponding={isResponding}
+                  checkCanSend={checkCanSend}
+                  visionConfig={visionConfig}
+                  fileConfig={fileConfig}
+                  isMobile
+                />
+              </div>
+            )}
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className='h-screen overflow-hidden bg-white'>
+      <div className="flex h-full overflow-hidden bg-white">
+        {renderSidebar()}
+        <div className='flex min-w-0 flex-grow flex-col overflow-y-auto bg-white'>
+          {hasSetInputs && (
+            <div className='mx-auto w-full max-w-5xl px-8 pt-8'>
+              <ConfigSence
+                conversationName={conversationName}
+                hasSetInputs={hasSetInputs}
+                isPublicVersion={isShowPrompt}
+                siteInfo={APP_INFO}
+                promptConfig={promptConfig}
+                onStartChat={handleStartChat}
+                canEditInputs={canEditInputs}
+                savedInputs={currInputs as Record<string, any>}
+                onInputsChange={setCurrInputs}
+              />
+            </div>
+          )}
+
+          {hasSetInputs && (
+            <div className='relative mx-auto w-full max-w-5xl flex-1 px-8 pb-4' ref={chatListDomRef}>
+              <Chat
+                chatList={chatList}
+                onSend={handleSend}
+                onFeedback={handleFeedback}
+                isResponding={isResponding}
+                checkCanSend={checkCanSend}
+                visionConfig={visionConfig}
+                fileConfig={fileConfig}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

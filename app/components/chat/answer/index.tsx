@@ -198,8 +198,8 @@ const Answer: FC<IAnswerProps> = ({
 
   return (
     <div key={id}>
-      <div className="flex items-start gap-4">
-        <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-[#d7e9d7]'>
+      <div className="flex items-start gap-4 pl-1">
+        <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d7e9d7] bg-white'>
           <img src="/brand-icon.svg" alt="assistant" className="h-8 w-8 object-contain" />
           {isResponding
             && (
