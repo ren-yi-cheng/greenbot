@@ -16,7 +16,7 @@ const Question: FC<IQuestionProps> = ({ id, content, useCurrentUserAvatar, imgSr
     <div className='flex items-start justify-end gap-4' key={id}>
       <div className='max-w-[72%]'>
         <div className='relative text-sm text-gray-900'>
-          <div className='rounded-[14px] bg-[#2f9e44] px-5 py-4 text-[15px] leading-7 text-white shadow-[0_18px_40px_-32px_rgba(47,158,68,0.65)]'>
+          <div className='rounded-[14px] bg-[#74a86f] px-5 py-4 text-[15px] leading-7 text-white shadow-[0_18px_40px_-32px_rgba(116,168,111,0.65)]'>
             {imgSrcs && imgSrcs.length > 0 && (
               <ImageGallery srcs={imgSrcs} />
             )}
