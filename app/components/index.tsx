@@ -8,12 +8,9 @@ import { useBoolean, useGetState } from 'ahooks'
 import {
   Bars3Icon,
   CalculatorIcon,
-  Cog6ToothIcon,
   DocumentTextIcon,
   FolderIcon,
   MagnifyingGlassIcon,
-  PlusIcon,
-  QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline'
 import useConversation from '@/hooks/use-conversation'
 import Toast from '@/app/components/base/toast'
@@ -24,6 +21,8 @@ import type { ChatItem, ConversationItem, Feedbacktype, PromptConfig, VisionFile
 import type { FileUpload } from '@/app/components/base/file-uploader-in-attachment/types'
 import { Resolution, TransferMethod, WorkflowRunningStatus } from '@/types/app'
 import Chat from '@/app/components/chat'
+import MetricCalculator from '@/app/components/metric-calculator'
+import SpecQuery from '@/app/components/spec-query'
 import { setLocaleOnClient } from '@/i18n/client'
 import useBreakpoints, { MediaType } from '@/hooks/use-breakpoints'
 import Loading from '@/app/components/base/loading'
@@ -37,7 +36,22 @@ export interface IMainProps {
   params: any
 }
 
+type ActivePage = 'dashboard' | 'chat' | 'spec' | 'metric' | 'evidence' | 'project'
+type FeaturePage = Exclude<ActivePage, 'dashboard' | 'chat'>
+
+const isFeaturePage = (page: ActivePage): page is FeaturePage => ['spec', 'metric', 'evidence', 'project'].includes(page)
+
+const isParcelRecognitionConversation = (conversation: ConversationItem) => {
+  const name = conversation.name || ''
+  return name.includes('请识别') && name.includes('城市绿地规划底图')
+}
+
+const filterVisibleConversations = (conversations: ConversationItem[]) => {
+  return conversations.filter(item => !isParcelRecognitionConversation(item))
+}
+
 const Main: FC<IMainProps> = () => {
+  const HOME_FEATURES_LOCKED = true
   const { t } = useTranslation()
   const media = useBreakpoints()
   const isMobile = media === MediaType.mobile
@@ -56,6 +70,7 @@ const Main: FC<IMainProps> = () => {
   })
   const [fileConfig, setFileConfig] = useState<FileUpload | undefined>()
   const [isLandingVisible, setIsLandingVisible] = useState(true)
+  const [activePage, setActivePage] = useState<ActivePage>('dashboard')
   const [homeQuery, setHomeQuery] = useState('')
   const [pendingHomeQuery, setPendingHomeQuery] = useState('')
   const [comingSoonFeature, setComingSoonFeature] = useState<string | null>(null)
@@ -110,10 +125,10 @@ const Main: FC<IMainProps> = () => {
   const suggestedQuestions = currConversationInfo?.suggested_questions || []
   const homePlaceholder = (() => {
     if (!conversationIntroduction)
-      return 'Whatever you need, just ask Greenbot!'
+    { return 'Whatever you need, just ask Greenbot!' }
 
     if (currInputs && promptConfig?.prompt_variables?.length)
-      return replaceVarWithValues(conversationIntroduction, promptConfig.prompt_variables, currInputs)
+    { return replaceVarWithValues(conversationIntroduction, promptConfig.prompt_variables, currInputs) }
 
     return conversationIntroduction
   })()
@@ -182,6 +197,7 @@ const Main: FC<IMainProps> = () => {
   }
 
   const handleGoDashboard = () => {
+    setActivePage('dashboard')
     setIsLandingVisible(false)
     setChatNotStarted()
     hideSidebar()
@@ -192,6 +208,7 @@ const Main: FC<IMainProps> = () => {
   }
 
   const handleGoChatbot = () => {
+    setActivePage('chat')
     setIsLandingVisible(false)
     hideSidebar()
     if (currConversationId && currConversationId !== '-1') {
@@ -204,6 +221,29 @@ const Main: FC<IMainProps> = () => {
     setCurrConversationId('-1', APP_ID)
     setChatStarted()
     setChatList([])
+  }
+
+  const handleGoSpecQuery = () => {
+    setActivePage('spec')
+    setIsLandingVisible(false)
+    hideSidebar()
+    setChatNotStarted()
+  }
+
+  const handleGoMetricCalculator = () => {
+    setActivePage('metric')
+    setIsLandingVisible(false)
+    hideSidebar()
+    setChatNotStarted()
+    setComingSoonFeature(null)
+  }
+
+  const handleGoComingSoonFeature = (page: 'metric' | 'evidence' | 'project', title: string) => {
+    setActivePage(page)
+    setIsLandingVisible(false)
+    hideSidebar()
+    setChatNotStarted()
+    setComingSoonFeature(title)
   }
 
   const [chatList, setChatList, getChatList] = useGetState<ChatItem[]>([])
@@ -222,7 +262,7 @@ const Main: FC<IMainProps> = () => {
   const canEditInputs = !chatList.some(item => item.isAnswer === false) && isNewConversation
   useEffect(() => {
     if (!pendingHomeQuery || !isChatStarted)
-      return
+    { return }
 
     handleSend(pendingHomeQuery)
     setPendingHomeQuery('')
@@ -277,7 +317,8 @@ const Main: FC<IMainProps> = () => {
           throw new Error(error)
         }
         const conversationId = getConversationIdFromStorage(APP_ID)
-        const currentConversation = conversations.find(item => item.id === conversationId)
+        const visibleConversations = filterVisibleConversations(conversations)
+        const currentConversation = visibleConversations.find(item => item.id === conversationId)
         const isNotNewConversation = !!currentConversation
 
         const { user_input_form, opening_statement: introduction, file_upload, system_parameters, suggested_questions: nextSuggestedQuestions = [] }: any = appParams
@@ -288,6 +329,7 @@ const Main: FC<IMainProps> = () => {
           suggested_questions: nextSuggestedQuestions,
         })
         if (isNotNewConversation) {
+          setActivePage('chat')
           setExistConversationInfo({
             name: currentConversation.name || t('app.chat.newChatDefaultName'),
             introduction,
@@ -314,7 +356,7 @@ const Main: FC<IMainProps> = () => {
           number_limits: file_upload?.number_limits,
           fileUploadConfig: file_upload?.fileUploadConfig,
         })
-        setConversationList(conversations as ConversationItem[])
+        setConversationList(visibleConversations as ConversationItem[])
 
         if (isNotNewConversation) { setCurrConversationId(conversationId, APP_ID, false) }
 
@@ -488,11 +530,14 @@ const Main: FC<IMainProps> = () => {
 
         if (getConversationIdChangeBecauseOfNew()) {
           const { data: allConversations }: any = await fetchConversations()
-          const newItem: any = await generationConversationName(allConversations[0].id)
-          const newAllConversations = produce(allConversations, (draft: any) => {
-            draft[0].name = newItem.name
-          })
-          setConversationList(newAllConversations as any)
+          const visibleConversations = filterVisibleConversations(allConversations)
+          if (visibleConversations.length > 0) {
+            const newItem: any = await generationConversationName(visibleConversations[0].id)
+            const newAllConversations = produce(visibleConversations, (draft: any) => {
+              draft[0].name = newItem.name
+            })
+            setConversationList(newAllConversations as any)
+          }
         }
         setConversationIdChangeBecauseOfNew(false)
         resetNewConversationInputs()
@@ -658,7 +703,11 @@ const Main: FC<IMainProps> = () => {
         onCurrentIdChange={handleConversationIdChange}
         onDashboardClick={handleGoDashboard}
         onChatbotClick={handleGoChatbot}
-        mode={hasSetInputs ? 'chat' : 'dashboard'}
+        onSpecQueryClick={handleGoSpecQuery}
+        onMetricClick={handleGoMetricCalculator}
+        onEvidenceClick={() => handleGoComingSoonFeature('evidence', '依据生成')}
+        onProjectClick={() => handleGoComingSoonFeature('project', '项目辅助')}
+        mode={activePage}
         currentId={currConversationId}
       />
     )
@@ -685,6 +734,31 @@ const Main: FC<IMainProps> = () => {
   }
 
   const handleFeatureComingSoon = (title: string) => {
+    if (HOME_FEATURES_LOCKED) {
+      setComingSoonFeature(prev => prev === title ? null : title)
+      return
+    }
+
+    if (title === '规范查询') {
+      handleGoSpecQuery()
+      return
+    }
+
+    if (title === '指标计算') {
+      handleGoMetricCalculator()
+      return
+    }
+
+    if (title === '依据生成') {
+      handleGoComingSoonFeature('evidence', title)
+      return
+    }
+
+    if (title === '项目辅助') {
+      handleGoComingSoonFeature('project', title)
+      return
+    }
+
     setComingSoonFeature(prev => prev === title ? null : title)
   }
 
@@ -727,29 +801,135 @@ const Main: FC<IMainProps> = () => {
       <div className='relative min-h-screen overflow-hidden bg-white px-6 py-6 text-slate-900'>
         <div className='relative mx-auto flex min-h-[calc(100vh_-_3rem)] w-full max-w-[1120px] items-center justify-center'>
           <div className='w-full max-w-[760px] -translate-y-[28px] text-center'>
-            <div className='mx-auto flex w-fit flex-col items-center'>
-              <Image src='/brand-icon.png' alt='Brand icon' width={84} height={84} priority className='h-[84px] w-[84px] object-contain' />
+            <div className='mx-auto inline-flex items-center gap-2 sm:gap-4'>
+              <Image
+                src='/brand-icon.png'
+                alt='Brand icon'
+                width={84}
+                height={84}
+                priority
+                className='h-[48px] w-[48px] object-contain sm:h-[84px] sm:w-[84px]'
+              />
+              <h1
+                className='whitespace-nowrap text-[36px] font-normal lowercase leading-none tracking-[-0.015em] text-[#151515] sm:text-[54px]'
+                style={{ fontFamily: 'var(--font-google-sans-flex), "Google Sans Flex", "Helvetica Neue", Arial, sans-serif' }}
+              >
+                greenbot
+              </h1>
+            </div>
+            <div
+              className='mx-auto mt-[48px] flex w-fit flex-col items-stretch text-center'
+              style={{ fontFamily: 'var(--font-source-han-sans-sc), "Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif' }}
+            >
+              <p className='whitespace-nowrap text-[30px] font-semibold leading-[1.12] tracking-[0.01em] text-[#222222]'>
+                绿地规划AI智能助手
+              </p>
+              <p className='mt-[10px] flex w-full items-center justify-between px-[2px] text-[19px] font-semibold leading-none text-[#6a6a6a]'>
+                <span>设</span>
+                <span>计</span>
+                <span>有</span>
+                <span>理</span>
+                <span>有</span>
+                <span>据</span>
+              </p>
             </div>
 
-            <h1 className='mt-[46px] text-[58px] font-semibold tracking-[-0.055em] text-[#151515] md:text-[58px]'>
-              GreenBot
-            </h1>
-            <p className='mt-[16px] text-[23px] font-normal text-[#2b2b2b]'>
-              AI Agent for Landscape Planning
-            </p>
-            <p className='mx-auto mt-[18px] max-w-[640px] text-[19px] leading-[1.5] text-[#333333]'>
-              From regulations to design decisions — in one workflow.
-            </p>
-
-            <div className='mt-[58px] flex flex-col items-center'>
+            <div className='mt-[56px] flex flex-col items-center'>
               <button
-                className='rounded-full bg-[#69be45] px-[30px] py-[16px] text-[18px] font-medium text-white shadow-[0_20px_45px_-22px_rgba(141,212,88,0.78)] transition hover:bg-[#60b03f]'
+                className='flex h-[48px] w-[172px] items-center justify-center rounded-full bg-[#69be45] px-[24px] py-[10px] text-[18px] font-medium text-white shadow-[0_20px_45px_-22px_rgba(141,212,88,0.78)] transition hover:bg-[#60b03f]'
                 onClick={handleGetStarted}
               >
-                Get Started →
+                <span className='font-medium tracking-normal'>启动</span>
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (isFeaturePage(activePage)) {
+    const featureTitleMap = {
+      spec: '规范查询',
+      metric: '指标计算',
+      evidence: '依据生成',
+      project: '项目辅助',
+    } as const
+    const featureBody = activePage === 'spec'
+      ? <SpecQuery isMobile={isMobile} />
+      : activePage === 'metric'
+        ? <MetricCalculator isMobile={isMobile} />
+        : (
+          <div className='flex h-full min-h-0 items-center justify-center bg-white px-8 text-center'>
+            <div>
+              <div className='text-[28px] font-semibold text-[#111827]'>{featureTitleMap[activePage]}</div>
+              <div className='mt-4 inline-flex rounded-full bg-[#2f9e44] px-5 py-2 text-[15px] font-semibold text-white shadow-[0_12px_24px_-18px_rgba(47,158,68,0.8)]'>
+                敬请期待
+              </div>
+            </div>
+          </div>
+        )
+
+    if (isMobile) {
+      return (
+        <div className='h-screen overflow-hidden bg-[#fcfcfb] text-[#1f2937]'>
+          <div className='relative flex h-full flex-col overflow-hidden'>
+            {isShowSidebar && (
+              <div className='absolute inset-0 z-40 bg-black/30 backdrop-blur-[1px]' onClick={hideSidebar}>
+                <div className='h-full w-[316px] bg-white shadow-[0_24px_48px_-24px_rgba(15,23,42,0.3)]' onClick={e => e.stopPropagation()}>
+                  <Sidebar
+                    list={conversationList}
+                    onCurrentIdChange={handleConversationIdChange}
+                    onDashboardClick={handleGoDashboard}
+                    onChatbotClick={handleGoChatbot}
+                    onSpecQueryClick={handleGoSpecQuery}
+                    onMetricClick={handleGoMetricCalculator}
+                    onEvidenceClick={() => handleGoComingSoonFeature('evidence', '依据生成')}
+                    onProjectClick={() => handleGoComingSoonFeature('project', '项目辅助')}
+                    mode={activePage}
+                    currentId={currConversationId}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className='bg-white px-4 pb-3 pt-6'>
+              <div className='flex items-center justify-between'>
+                <div className='flex items-center gap-[12px]'>
+                  <Image src='/brand-icon.png' alt='greenbot' width={38} height={38} className='h-[38px] w-[38px] object-contain' />
+                  <span
+                    className='text-[21px] font-normal tracking-[0.02em] text-[#171717]'
+                    style={{ fontFamily: 'var(--font-google-sans-flex), "Google Sans Flex", "Helvetica Neue", Arial, sans-serif' }}
+                  >
+                    greenbot
+                  </span>
+                </div>
+                <button
+                  type='button'
+                  className='flex h-10 w-10 items-center justify-center rounded-full text-[#171717]'
+                  onClick={showSidebar}
+                  aria-label='Open menu'
+                >
+                  <Bars3Icon className='h-7 w-7' />
+                </button>
+              </div>
+            </div>
+
+            <div className='min-h-0 flex-1 overflow-hidden'>
+              {featureBody}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className='h-screen overflow-hidden bg-white text-[#1f2937]'>
+        <div className='flex h-full overflow-hidden bg-white'>
+          {renderSidebar()}
+          <main className='min-w-0 flex-1 overflow-hidden bg-white'>
+            {featureBody}
+          </main>
         </div>
       </div>
     )
@@ -768,6 +948,10 @@ const Main: FC<IMainProps> = () => {
                     onCurrentIdChange={handleConversationIdChange}
                     onDashboardClick={handleGoDashboard}
                     onChatbotClick={handleGoChatbot}
+                    onSpecQueryClick={handleGoSpecQuery}
+                    onMetricClick={handleGoMetricCalculator}
+                    onEvidenceClick={() => handleGoComingSoonFeature('evidence', '依据生成')}
+                    onProjectClick={() => handleGoComingSoonFeature('project', '项目辅助')}
                     mode='dashboard'
                     currentId={currConversationId}
                   />
@@ -777,9 +961,14 @@ const Main: FC<IMainProps> = () => {
 
             <div className='bg-white px-4 pb-3 pt-6'>
               <div className='flex items-center justify-between'>
-                <div className='flex items-center gap-3'>
-                  <Image src='/brand-icon.png' alt='greenbot' width={32} height={32} className='h-8 w-8 object-contain' />
-                  <span className='text-[18px] font-semibold tracking-[-0.04em] text-[#171717]'>greenbot</span>
+                <div className='flex items-center gap-[12px]'>
+                  <Image src='/brand-icon.png' alt='greenbot' width={38} height={38} className='h-[38px] w-[38px] object-contain' />
+                  <span
+                    className='text-[21px] font-normal tracking-[0.02em] text-[#171717]'
+                    style={{ fontFamily: 'var(--font-google-sans-flex), "Google Sans Flex", "Helvetica Neue", Arial, sans-serif' }}
+                  >
+                    greenbot
+                  </span>
                 </div>
                 <button
                   type='button'
@@ -794,9 +983,9 @@ const Main: FC<IMainProps> = () => {
 
             <div className='flex-1 overflow-y-auto'>
               <div className='mx-auto w-full max-w-xl px-3 pb-6 pt-2'>
-                <div className='text-[15px] font-medium text-[#6b7280]'>Welcome to Greenbot AI</div>
-                <h1 className='mt-3 text-[38px] font-semibold leading-[1.1] tracking-[-0.05em] text-[#111827]'>
-                  Ask me anything{'\u2014'}I&apos;m here to help!
+                <div className='text-[15px] font-medium text-[#6b7280]'>欢迎使用greenbot</div>
+                <h1 className='mt-3 text-[27px] font-semibold leading-[1.08] text-[#111827]'>
+                  有什么规范问题需要解决？
                 </h1>
 
                 <div className='mt-8 overflow-hidden rounded-[28px] border border-[#e5e7eb] bg-white shadow-[0_20px_40px_-32px_rgba(15,23,42,0.16)]'>
@@ -811,13 +1000,13 @@ const Main: FC<IMainProps> = () => {
                       className='flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#74a86f] text-[20px] font-semibold text-white transition hover:bg-[#689963]'
                       onClick={handleStartFromHome}
                     >
-                      {`>`}
+                      {'>'}
                     </button>
                   </div>
                 </div>
 
-                <div className='mt-12'>
-                  <div className='text-[17px] font-semibold text-[#111827]'>Explore by ready prompt</div>
+                <div className='mt-16'>
+                  <div className='text-[17px] font-semibold text-[#111827]'>功能列表</div>
                   <div className='mt-6 space-y-5'>
                     {quickActions.map((item) => {
                       const Icon = item.icon
@@ -862,67 +1051,71 @@ const Main: FC<IMainProps> = () => {
             onCurrentIdChange={handleConversationIdChange}
             onDashboardClick={handleGoDashboard}
             onChatbotClick={handleGoChatbot}
+            onSpecQueryClick={handleGoSpecQuery}
+            onMetricClick={handleGoMetricCalculator}
+            onEvidenceClick={() => handleGoComingSoonFeature('evidence', '依据生成')}
+            onProjectClick={() => handleGoComingSoonFeature('project', '项目辅助')}
             mode='dashboard'
             currentId={currConversationId}
           />
 
           <main className='flex min-w-0 flex-1 overflow-y-auto bg-white'>
             <div className='mx-auto w-full max-w-6xl px-[40px] pt-[28px] pb-[12px]'>
-                <div className='text-[15px] font-medium text-[#6b7280]'>Welcome to Greenbot AI</div>
-                <h1 className='mt-[6px] text-[40px] font-semibold tracking-[-0.05em] text-[#111827]'>
-                  Ask me anything{'\u2014'}I&apos;m here to help!
-                </h1>
+              <div className='text-[15px] font-medium text-[#6b7280]'>欢迎使用greenbot</div>
+              <h1 className='mt-[6px] text-[27px] font-semibold leading-[1.08] text-[#111827]'>
+                有什么规范问题需要解决？
+              </h1>
 
-                <div className='mt-[18px] overflow-hidden rounded-[22px] border border-[#e5e7eb] bg-white shadow-[0_20px_40px_-32px_rgba(15,23,42,0.16)]'>
-                  <textarea
-                    value={homeQuery}
-                    onChange={e => setHomeQuery(e.target.value)}
-                    placeholder={homePlaceholder}
-                    className='h-[140px] w-full resize-none border-0 px-7 py-6 text-[16px] text-[#111827] outline-none placeholder:text-[15px] placeholder:text-[#a8b0c2]'
-                  />
-                  <div className='flex items-center justify-end px-7 py-3'>
-                    <div className='flex items-center'>
-                      <button
-                        className='flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#74a86f] text-[20px] font-semibold text-white transition hover:bg-[#689963]'
-                        onClick={handleStartFromHome}
-                      >
-                        {`>`}
-                      </button>
-                    </div>
+              <div className='mt-[18px] overflow-hidden rounded-[22px] border border-[#e5e7eb] bg-white shadow-[0_20px_40px_-32px_rgba(15,23,42,0.16)]'>
+                <textarea
+                  value={homeQuery}
+                  onChange={e => setHomeQuery(e.target.value)}
+                  placeholder={homePlaceholder}
+                  className='h-[140px] w-full resize-none border-0 px-7 py-6 text-[16px] text-[#111827] outline-none placeholder:text-[15px] placeholder:text-[#a8b0c2]'
+                />
+                <div className='flex items-center justify-end px-7 py-3'>
+                  <div className='flex items-center'>
+                    <button
+                      className='flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#74a86f] text-[20px] font-semibold text-white transition hover:bg-[#689963]'
+                      onClick={handleStartFromHome}
+                    >
+                      {'>'}
+                    </button>
                   </div>
                 </div>
+              </div>
 
-                <div className='mt-[20px]'>
-                  <div className='text-[17px] font-semibold text-[#111827]'>Explore by ready prompt</div>
+                <div className='mt-[32px]'>
+                <div className='text-[17px] font-semibold text-[#111827]'>功能列表</div>
                   <div className='mt-4 grid grid-cols-4 gap-4'>
-                    {quickActions.map((item) => {
-                      const Icon = item.icon
-                      return (
-                        <button
-                          type='button'
-                          key={item.title}
-                          onClick={() => handleFeatureComingSoon(item.title)}
-                          className='relative min-h-[272px] rounded-[20px] border border-[#eceff3] bg-white px-5 py-4 text-left shadow-[0_18px_40px_-34px_rgba(15,23,42,0.14)] transition hover:-translate-y-[1px] hover:shadow-[0_22px_44px_-32px_rgba(15,23,42,0.18)]'
-                        >
-                          {comingSoonFeature === item.title && (
-                            <div className='pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[20px] bg-white/84 backdrop-blur-[1px]'>
-                              <div className='rounded-full bg-[#2f9e44] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_24px_-18px_rgba(47,158,68,0.8)]'>
-                                敬请期待
-                              </div>
+                  {quickActions.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <button
+                        type='button'
+                        key={item.title}
+                        onClick={() => handleFeatureComingSoon(item.title)}
+                        className='relative min-h-[272px] rounded-[20px] border border-[#eceff3] bg-white px-5 py-4 text-left shadow-[0_18px_40px_-34px_rgba(15,23,42,0.14)] transition hover:-translate-y-[1px] hover:shadow-[0_22px_44px_-32px_rgba(15,23,42,0.18)]'
+                      >
+                        {comingSoonFeature === item.title && (
+                          <div className='pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[20px] bg-white/84 backdrop-blur-[1px]'>
+                            <div className='rounded-full bg-[#2f9e44] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_24px_-18px_rgba(47,158,68,0.8)]'>
+                              敬请期待
                             </div>
-                          )}
-                          <div className='grid min-h-[232px] grid-rows-[52px_34px_1fr] content-start'>
-                            <div className={`flex h-[52px] w-[52px] items-center justify-center rounded-[15px] ${item.bg}`}>
-                              <Icon className={`h-5 w-5 ${item.color}`} />
-                            </div>
-                            <div className='flex items-start pt-6 text-[15px] font-semibold leading-[1.25] text-[#111827]'>{item.title}</div>
-                            <p className='pt-4 text-[13px] leading-7 text-[#667085]'>{item.description}</p>
                           </div>
-                        </button>
-                      )
-                    })}
-                  </div>
+                        )}
+                        <div className='grid min-h-[232px] grid-rows-[52px_34px_1fr] content-start'>
+                          <div className={`flex h-[52px] w-[52px] items-center justify-center rounded-[15px] ${item.bg}`}>
+                            <Icon className={`h-5 w-5 ${item.color}`} />
+                          </div>
+                          <div className='flex items-start pt-6 text-[15px] font-semibold leading-[1.25] text-[#111827]'>{item.title}</div>
+                          <p className='pt-4 text-[13px] leading-7 text-[#667085]'>{item.description}</p>
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
+              </div>
             </div>
           </main>
         </div>
@@ -942,6 +1135,10 @@ const Main: FC<IMainProps> = () => {
                   onCurrentIdChange={handleConversationIdChange}
                   onDashboardClick={handleGoDashboard}
                   onChatbotClick={handleGoChatbot}
+                  onSpecQueryClick={handleGoSpecQuery}
+                  onMetricClick={handleGoMetricCalculator}
+                  onEvidenceClick={() => handleGoComingSoonFeature('evidence', '依据生成')}
+                  onProjectClick={() => handleGoComingSoonFeature('project', '项目辅助')}
                   mode='chat'
                   currentId={currConversationId}
                 />
@@ -951,9 +1148,14 @@ const Main: FC<IMainProps> = () => {
 
           <div className='bg-white px-4 pb-3 pt-6'>
             <div className='flex items-center justify-between'>
-              <div className='flex items-center gap-3'>
-                <Image src='/brand-icon.png' alt='greenbot' width={32} height={32} className='h-8 w-8 object-contain' />
-                <span className='text-[18px] font-semibold tracking-[-0.04em] text-[#171717]'>greenbot</span>
+              <div className='flex items-center gap-[12px]'>
+                <Image src='/brand-icon.png' alt='greenbot' width={38} height={38} className='h-[38px] w-[38px] object-contain' />
+                <span
+                  className='text-[21px] font-normal tracking-[0.02em] text-[#171717]'
+                  style={{ fontFamily: 'var(--font-google-sans-flex), "Google Sans Flex", "Helvetica Neue", Arial, sans-serif' }}
+                >
+                  greenbot
+                </span>
               </div>
               <button
                 type='button'
