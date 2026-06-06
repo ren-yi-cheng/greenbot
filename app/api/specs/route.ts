@@ -1,0 +1,90 @@
+import { readdir } from 'fs/promises'
+import path from 'path'
+import { NextResponse } from 'next/server'
+
+type SpecCategory = '国家标准' | '行业标准' | '地方标准'
+
+interface SpecItem {
+  id: string
+  category: SpecCategory
+  tag: '国标' | '行标' | '地标'
+  title: string
+  code: string
+  publisher: string
+  year: string
+  fileUrl: string
+}
+
+const categoryTagMap: Record<SpecCategory, SpecItem['tag']> = {
+  国家标准: '国标',
+  行业标准: '行标',
+  地方标准: '地标',
+}
+
+const categoryPublisherMap: Record<SpecCategory, string> = {
+  国家标准: '国家标准',
+  行业标准: '行业标准',
+  地方标准: '地方标准',
+}
+
+const normalizeSpaces = (value: string) => value.replace(/\s+/g, ' ').trim()
+
+const createId = (value: string) => encodeURIComponent(value).replace(/%/g, '').toLowerCase()
+
+const extractYear = (value: string) => {
+  const match = value.match(/(?:19|20)\d{2}/)
+
+  return match?.[0] || ''
+}
+
+const parseSpecName = (name: string, category: SpecCategory) => {
+  const baseName = normalizeSpaces(name.replace(/\.pdf$/i, ''))
+  const codeMatch = baseName.match(/^([A-Za-z_\s\u00A0-]+[A-Za-z]?\s*[\d-]+(?:\s*-\s*\d{2,4})?)/)
+  const code = codeMatch ? normalizeSpaces(codeMatch[1].replace(/_/g, '/')) : ''
+  const title = code ? normalizeSpaces(baseName.slice(codeMatch![0].length)) : baseName
+
+  return {
+    title: title || baseName,
+    code,
+    publisher: categoryPublisherMap[category],
+    year: extractYear(baseName),
+  }
+}
+
+export async function GET() {
+  const specsRoot = path.join(process.cwd(), 'public', 'specs')
+  const categories: SpecCategory[] = ['国家标准', '行业标准', '地方标准']
+  const specs: SpecItem[] = []
+
+  for (const category of categories) {
+    const categoryPath = path.join(specsRoot, category)
+    const entries = await readdir(categoryPath, { withFileTypes: true })
+
+    entries
+      .filter(entry => entry.isFile() && entry.name.toLowerCase().endsWith('.pdf'))
+      .forEach((entry) => {
+        const parsed = parseSpecName(entry.name, category)
+        const fileUrl = `/specs/${encodeURIComponent(category)}/${encodeURIComponent(entry.name)}`
+
+        specs.push({
+          id: createId(`${category}-${entry.name}`),
+          category,
+          tag: categoryTagMap[category],
+          fileUrl,
+          ...parsed,
+        })
+      })
+  }
+
+  specs.sort((a, b) => {
+    const yearDiff = Number(b.year || 0) - Number(a.year || 0)
+
+    if (yearDiff !== 0) {
+      return yearDiff
+    }
+
+    return a.title.localeCompare(b.title, 'zh-CN')
+  })
+
+  return NextResponse.json({ data: specs })
+}

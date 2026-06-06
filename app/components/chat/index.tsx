@@ -52,6 +52,7 @@ const Chat: FC<IChatProps> = ({
   const { t } = useTranslation()
   const { notify } = Toast
   const isUseInputMethod = useRef(false)
+  const showAttachmentUploader = false
 
   const [query, setQuery] = React.useState('')
   const queryRef = useRef('')
@@ -94,8 +95,9 @@ const Chat: FC<IChatProps> = ({
   }, [controlClearQuery])
 
   const handleSend = () => {
-    if (!valid() || (checkCanSend && !checkCanSend()))
+    if (!valid() || (checkCanSend && !checkCanSend())) {
       return
+    }
 
     const hasPendingImageUploads = files.some(file => file.progress !== -1 && file.progress < 100)
     const hasPendingAttachmentUploads = attachmentFiles.some(file => file.progress !== -1 && file.progress < 100)
@@ -120,8 +122,9 @@ const Chat: FC<IChatProps> = ({
     onSend(queryRef.current, combinedFiles)
 
     if (!files.find(item => item.type === TransferMethod.local_file && !item.fileId)) {
-      if (files.length)
+      if (files.length) {
         onClear()
+      }
 
       if (!isResponding) {
         setQuery('')
@@ -129,15 +132,17 @@ const Chat: FC<IChatProps> = ({
       }
     }
 
-    if (!attachmentFiles.find(item => item.transferMethod === TransferMethod.local_file && !item.uploadedId))
+    if (!attachmentFiles.find(item => item.transferMethod === TransferMethod.local_file && !item.uploadedId)) {
       setAttachmentFiles([])
+    }
   }
 
   const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.code === 'Enter') {
       e.preventDefault()
-      if (!e.shiftKey && !isUseInputMethod.current)
+      if (!e.shiftKey && !isUseInputMethod.current) {
         handleSend()
+      }
     }
   }
 
@@ -216,7 +221,7 @@ const Chat: FC<IChatProps> = ({
                 </div>
               )}
 
-              {fileConfig?.enabled && (
+              {showAttachmentUploader && fileConfig?.enabled && (
                 <div className="mb-2">
                   <FileUploaderInAttachmentWrapper
                     fileConfig={fileConfig}
@@ -259,7 +264,7 @@ const Chat: FC<IChatProps> = ({
                         onClick={handleSend}
                         aria-label={t('common.operation.send')}
                       >
-                        {`>`}
+                        {'>'}
                       </button>
                     </Tooltip>
                   </div>
