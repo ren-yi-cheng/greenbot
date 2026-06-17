@@ -1,6 +1,7 @@
-import { readdir } from 'fs/promises'
-import path from 'path'
 import { NextResponse } from 'next/server'
+import { specFilePaths } from './spec-files'
+
+export const dynamic = 'force-dynamic'
 
 type SpecCategory = '国家标准' | '行业标准' | '地方标准'
 
@@ -27,9 +28,23 @@ const categoryPublisherMap: Record<SpecCategory, string> = {
   地方标准: '地方标准',
 }
 
+const defaultSpecBaseUrl = 'https://specs-1430019296.cos.ap-shanghai.myqcloud.com'
+
 const normalizeSpaces = (value: string) => value.replace(/\s+/g, ' ').trim()
 
 const createId = (value: string) => encodeURIComponent(value).replace(/%/g, '').toLowerCase()
+
+const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, '')
+
+const encodePath = (value: string) => value.split('/').map(segment => encodeURIComponent(segment)).join('/')
+
+const createFileUrl = (filePath: string) => {
+  const baseUrl = trimSlashes(process.env.SPECS_BASE_URL || defaultSpecBaseUrl)
+  const pathPrefix = trimSlashes(process.env.SPECS_PATH_PREFIX || '')
+  const encodedPath = encodePath(pathPrefix ? `${pathPrefix}/${filePath}` : filePath)
+
+  return `${baseUrl}/${encodedPath}`
+}
 
 const extractYear = (value: string) => {
   const match = value.match(/(?:19|20)\d{2}/)
@@ -52,29 +67,18 @@ const parseSpecName = (name: string, category: SpecCategory) => {
 }
 
 export async function GET() {
-  const specsRoot = path.join(process.cwd(), 'public', 'specs')
-  const categories: SpecCategory[] = ['国家标准', '行业标准', '地方标准']
-  const specs: SpecItem[] = []
+  const specs: SpecItem[] = specFilePaths.map((filePath) => {
+    const [category, fileName] = filePath.split('/') as [SpecCategory, string]
+    const parsed = parseSpecName(fileName, category)
 
-  for (const category of categories) {
-    const categoryPath = path.join(specsRoot, category)
-    const entries = await readdir(categoryPath, { withFileTypes: true })
-
-    entries
-      .filter(entry => entry.isFile() && entry.name.toLowerCase().endsWith('.pdf'))
-      .forEach((entry) => {
-        const parsed = parseSpecName(entry.name, category)
-        const fileUrl = `/specs/${encodeURIComponent(category)}/${encodeURIComponent(entry.name)}`
-
-        specs.push({
-          id: createId(`${category}-${entry.name}`),
-          category,
-          tag: categoryTagMap[category],
-          fileUrl,
-          ...parsed,
-        })
-      })
-  }
+    return {
+      id: createId(filePath),
+      category,
+      tag: categoryTagMap[category],
+      fileUrl: createFileUrl(filePath),
+      ...parsed,
+    }
+  })
 
   specs.sort((a, b) => {
     const yearDiff = Number(b.year || 0) - Number(a.year || 0)

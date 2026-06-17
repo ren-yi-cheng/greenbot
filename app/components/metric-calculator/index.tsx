@@ -9,9 +9,6 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   ClipboardDocumentCheckIcon,
-  ExclamationTriangleIcon,
-  MagnifyingGlassIcon,
-  ShieldCheckIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline'
 import Uploader from '@/app/components/base/image-uploader/uploader'
@@ -20,7 +17,7 @@ import { deleteConversation, sendChatMessage } from '@/service'
 import type { ImageFile } from '@/types/app'
 import { TransferMethod } from '@/types/app'
 
-type MetricPanel = 'parcel' | 'guide' | 'formula' | 'verify'
+type MetricPanel = 'parcel' | 'formula'
 
 interface IMetricCalculatorProps {
   isMobile?: boolean
@@ -39,6 +36,24 @@ interface RecommendedIndicator {
   reason: string
 }
 
+interface FormulaInput {
+  key: string
+  label: string
+  placeholder: string
+}
+
+interface FormulaItem {
+  key: string
+  tag: string
+  title: string
+  formula: string
+  requirement: string
+  source: string
+  inputs: FormulaInput[]
+  unit: '%' | 'm²/人'
+  calculate: (values: Record<string, number>) => number
+}
+
 const tabs = [
   {
     key: 'parcel',
@@ -47,22 +62,10 @@ const tabs = [
     icon: ScanIcon,
   },
   {
-    key: 'guide',
-    title: '指标导引',
-    desc: '输入项目信息 · 告知要关注的指标',
-    icon: MagnifyingGlassIcon,
-  },
-  {
     key: 'formula',
     title: '公式查询',
     desc: '规范公式速查 · 内嵌即时计算器',
     icon: CalculatorIcon,
-  },
-  {
-    key: 'verify',
-    title: 'AI 核验',
-    desc: '核验看板 · 优化建议 · 一键生成核验报告',
-    icon: ShieldCheckIcon,
   },
 ] as const
 
@@ -146,47 +149,76 @@ const siteFeatureOptions = [
   '风景名胜区',
 ]
 
-const formulas = [
+const formulas: FormulaItem[] = [
   {
     tag: '概况',
-    title: '有效绿地率',
-    formula: '绿地面积 ÷ 总用地面积 × 100%',
-    requirement: '居住区 ≥ 30%；公园 ≥ 65%',
-    source: 'GB 50180-2018 / GB 51192-2016',
-  },
-  { tag: '宏观', title: '人均公园绿地面积' },
-  { tag: '概况', title: '建筑密度' },
-  { tag: '宏观', title: '海绵城市径流控制率' },
-]
-
-const verifyRows = [
-  ['绿地率', '27.5%', '≥ 30%', '未达标'],
-  ['建筑密度', '18.3%', '≤ 30%', '达标'],
-  ['硬质铺装率', '34.2%', '≤ 30%', '未达标'],
-  ['活动场地占比', '10.0%', '8% ~ 15%', '达标'],
-  ['水体面积占比', '10.0%', '—', '达标'],
-]
-
-const suggestions = [
-  {
-    title: '绿地率 27.5%',
-    status: '未达标',
-    body: '在西北角 1200m² 硬质广场上增设条形花坛与渗水砖，预计可提升至 32.4%。',
+    key: 'greening-rate',
+    title: '绿地率',
+    formula: '各类绿地面积之和 ÷ 区域总用地面积 × 100%',
+    requirement: '规划层面要求城区绿地率不应小于35%，设区城市各区均不应小于28%。',
+    source: 'CJJ/T 85-2017',
+    inputs: [
+      { key: 'greenArea', label: '各类绿地面积之和', placeholder: '各类绿地面积之和 (m²)' },
+      { key: 'totalArea', label: '区域总用地面积', placeholder: '区域总用地面积 (m²)' },
+    ],
+    unit: '%',
+    calculate: values => (values.greenArea / values.totalArea) * 100,
   },
   {
-    title: '人均公园绿地 待补充',
-    status: '数据缺失',
-    body: '建议先在「指标导引」中填写规划人口，或上传社会调研数据后再核算。',
+    tag: '人均',
+    key: 'per-capita-park',
+    title: '人均公园绿地面积',
+    formula: '公园绿地面积 ÷ 常住人口数',
+    requirement: '规划人均绿地与广场用地面积不应小于10.0m²/人，设区城市各区人均公园绿地面积不宜小于7.0m²/人。',
+    source: 'GB 50137-2011 / GB 51192',
+    inputs: [
+      { key: 'parkArea', label: '公园绿地面积', placeholder: '公园绿地面积 (m²)' },
+      { key: 'population', label: '常住人口数', placeholder: '常住人口数 (人)' },
+    ],
+    unit: 'm²/人',
+    calculate: values => values.parkArea / values.population,
   },
   {
-    title: '建筑密度 18.3%',
-    status: '达标',
-    body: '余量 11.7%，可考虑在东侧增设社区配套用房，仍处合规区间。',
+    tag: '人均',
+    key: 'per-capita-green',
+    title: '人均绿地面积',
+    formula: '各类绿地面积之和 ÷ 常住人口数',
+    requirement: '用于综合评估绿地资源供给总量，适用于现状评估与规划目标设定。',
+    source: 'CJJ/T 85-2017',
+    inputs: [
+      { key: 'greenArea', label: '各类绿地面积之和', placeholder: '各类绿地面积之和 (m²)' },
+      { key: 'population', label: '常住人口数', placeholder: '常住人口数 (人)' },
+    ],
+    unit: 'm²/人',
+    calculate: values => values.greenArea / values.population,
   },
   {
-    title: '硬质率 34.2%',
-    status: '偏高',
-    body: '建议将主园路两侧 5m 范围替换为透水铺装并增加乔木树荫，缓解热岛。',
+    tag: '全域',
+    key: 'urban-rural-rate',
+    title: '城乡绿地率',
+    formula: '公园绿地、防护绿地、广场绿地、附属绿地、区域绿地面积之和 ÷ 城乡总用地面积 × 100%',
+    requirement: '支撑全域生态空间管控，纳入区域绿地如风景林地、郊野公园等。',
+    source: 'CJJ/T 85-2017',
+    inputs: [
+      { key: 'greenArea', label: '五类绿地面积之和', placeholder: '五类绿地面积之和 (m²)' },
+      { key: 'totalArea', label: '城乡总用地面积', placeholder: '城乡总用地面积 (m²)' },
+    ],
+    unit: '%',
+    calculate: values => (values.greenArea / values.totalArea) * 100,
+  },
+  {
+    tag: '覆盖',
+    key: 'green-coverage-rate',
+    title: '绿化覆盖率',
+    formula: '乔灌木及多年生草本植物垂直投影面积总和 ÷ 城市（或区域）总面积 × 100%',
+    requirement: '乔木树冠下重叠的灌木与草坪不重复计入，屋顶绿化、垂直绿化、阳台绿化等不纳入统计。',
+    source: '绿化覆盖统计口径',
+    inputs: [
+      { key: 'coverageArea', label: '植物垂直投影面积总和', placeholder: '植物垂直投影面积总和 (m²)' },
+      { key: 'totalArea', label: '城市（或区域）总面积', placeholder: '城市（或区域）总面积 (m²)' },
+    ],
+    unit: '%',
+    calculate: values => (values.coverageArea / values.totalArea) * 100,
   },
 ]
 
@@ -299,6 +331,8 @@ const MetricCalculator: FC<IMetricCalculatorProps> = ({ isMobile = false }) => {
   const [isGeneratingGuide, setIsGeneratingGuide] = useState(false)
   const [guideAnswer, setGuideAnswer] = useState('')
   const [recommendedIndicators, setRecommendedIndicators] = useState<RecommendedIndicator[]>([])
+  const [formulaInputs, setFormulaInputs] = useState<Record<string, string>>({})
+  const [formulaResults, setFormulaResults] = useState<Record<string, string>>({})
   const [guideForm, setGuideForm] = useState({
     landUseType: landUseTypeOptions[0],
     district: shanghaiDistrictOptions[10],
@@ -308,7 +342,6 @@ const MetricCalculator: FC<IMetricCalculatorProps> = ({ isMobile = false }) => {
     siteFeatures: [] as string[],
   })
 
-  const activeTitle = tabs.find(item => item.key === activePanel)?.title || '地块识别'
   const hasUploadedParcelImage = !!parcelImage && !parcelImage.deleted
   const hasRecognitionAnswer = recognitionAnswer.trim().length > 0
   const hasRecognizedColors = recognizedColors.length > 0
@@ -327,6 +360,51 @@ const MetricCalculator: FC<IMetricCalculatorProps> = ({ isMobile = false }) => {
           : [...selected, option],
       }
     })
+  }
+
+  const handleFormulaInputChange = (formulaKey: string, field: string, value: string) => {
+    setFormulaInputs(current => ({
+      ...current,
+      [`${formulaKey}.${field}`]: value,
+    }))
+    setFormulaResults(current => ({
+      ...current,
+      [formulaKey]: '请点击计算',
+    }))
+  }
+
+  const handleCalculateFormula = (formula: FormulaItem) => {
+    const values: Record<string, number> = {}
+
+    for (const input of formula.inputs) {
+      const rawValue = formulaInputs[`${formula.key}.${input.key}`]
+      const value = Number(rawValue)
+      if (!rawValue || Number.isNaN(value)) {
+        setFormulaResults(current => ({
+          ...current,
+          [formula.key]: '请补全变量',
+        }))
+        Toast.notify({ type: 'info', message: `请先输入${input.label}` })
+        return
+      }
+      values[input.key] = value
+    }
+
+    const denominator = formula.inputs[1]
+    if (values[denominator.key] <= 0) {
+      setFormulaResults(current => ({
+        ...current,
+        [formula.key]: `${denominator.label}需大于 0`,
+      }))
+      Toast.notify({ type: 'error', message: `${denominator.label}需大于 0` })
+      return
+    }
+
+    const result = formula.calculate(values)
+    setFormulaResults(current => ({
+      ...current,
+      [formula.key]: `${result.toFixed(2)}${formula.unit}`,
+    }))
   }
 
   const handleRemoveParcelImage = () => {
@@ -554,50 +632,52 @@ const MetricCalculator: FC<IMetricCalculatorProps> = ({ isMobile = false }) => {
 
   return (
     <div className='flex h-full min-h-0 flex-col bg-white text-[#06130c]'>
-      <header className='shrink-0 border-b border-[#dfe7dc] bg-white'>
-        <div className={`${isMobile ? 'px-4 pb-3 pt-4' : 'px-[30px] pb-1 pt-4'} shrink-0`}>
+      <header className='shrink-0 bg-white'>
+        <div className={`${isMobile ? 'px-4 pt-4' : 'px-[30px] pt-4'}`}>
           <h1 className={`${isMobile ? 'text-[26px] leading-8' : 'text-[24px] leading-8'} font-semibold text-[#06130c]`}>指标计算</h1>
           <p className={`${isMobile ? 'mt-1 text-[14px]' : 'mt-1 text-[13px]'} leading-5 text-[#53605a]`}>规划指标全流程工作台</p>
-        </div>
-        <div className={`${isMobile ? 'overflow-x-auto px-4' : 'px-[30px]'} flex gap-3`}>
-          {tabs.map((item) => {
-            const Icon = item.icon
-            const isActive = activePanel === item.key
 
-            return (
-              <button
-                type='button'
-                key={item.key}
-                onClick={() => setActivePanel(item.key)}
-                className={`flex min-w-[190px] items-center gap-3 rounded-t-[18px] py-1.5 pl-0 pr-4 text-left transition ${
-                  isActive ? 'bg-white shadow-[0_-10px_24px_-22px_rgba(15,23,42,0.18)]' : 'hover:bg-white/70'
-                }`}
-              >
-                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                  isActive ? 'bg-[#2f9e44] text-white' : 'bg-[#eef3ec] text-[#53605a]'
-                }`}>
-                  <Icon className='h-3.5 w-3.5' />
-                </span>
-                <span className='min-w-0'>
-                  <span className='block text-[14px] font-semibold leading-5 text-[#06130c]'>{item.title}</span>
-                  <span className='block truncate text-[10px] leading-4 text-[#53605a]'>{item.desc}</span>
-                </span>
-              </button>
-            )
-          })}
+          <div className={`${isMobile ? '-mx-4 mt-5 px-4' : '-mx-[30px] mt-5 px-[30px]'} grid grid-cols-2 border-b border-[#dfe7dc]`}>
+            {tabs.map((item) => {
+              const Icon = item.icon
+              const isActive = activePanel === item.key
+
+              return (
+                <button
+                  type='button'
+                  key={item.key}
+                  onClick={() => setActivePanel(item.key)}
+                  className={`-mb-px flex min-w-0 items-center justify-center gap-3 border-b-[4px] pb-3 text-left transition ${
+                    isActive
+                      ? 'border-[#0c7a35]'
+                      : 'border-transparent hover:border-[#cfe1cf]'
+                  }`}
+                >
+                  <span className={`flex shrink-0 items-center justify-center ${
+                    isActive ? 'text-[#2f9e44]' : 'text-[#6f7d75]'
+                  }`}>
+                    <Icon className='h-5 w-5' />
+                  </span>
+                  <span className='flex min-w-0 items-baseline gap-2 whitespace-nowrap'>
+                    <span className={`text-[15px] font-medium leading-5 ${
+                      isActive ? 'text-[#0c7a35]' : 'text-[#06130c]'
+                    }`}>{item.title}</span>
+                    <span className='truncate text-[12px] font-normal leading-5 text-[#53605a]'>{item.desc}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </header>
 
-      <main className={`${isMobile ? 'px-4 py-4' : 'px-[30px] py-6'} min-h-0 flex-1 overflow-y-auto bg-white`}>
-        <div className='mb-3 text-[13px] text-[#53605a]'>
-          指标计算 <span className='px-1'>/</span> <span className='font-medium text-[#06130c]'>{activeTitle}</span>
-        </div>
-        <h2 className='mb-5 text-[22px] font-semibold leading-7 text-[#06130c]'>{activeTitle}</h2>
-
+      <main className={`${isMobile ? 'px-4 py-4' : 'px-[30px] py-5'} min-h-0 flex-1 bg-white ${
+        activePanel === 'parcel' && !isMobile ? 'overflow-hidden' : 'overflow-y-auto'
+      }`}>
         {activePanel === 'parcel' && (
-          <div className='space-y-5'>
-            <div className={`${isMobile ? 'grid-cols-1' : 'grid-cols-[minmax(0,1fr)_360px]'} grid gap-5`}>
-              <div className='relative min-h-[390px] overflow-hidden rounded-[18px] border border-dashed border-[#cbd6c8] bg-[#f2f6f0]'>
+          <div className={isMobile ? 'space-y-5' : 'flex h-full min-h-0 flex-col gap-4'}>
+            <div className={`${isMobile ? 'grid-cols-1 gap-5' : 'min-h-0 flex-1 grid-cols-[minmax(0,1fr)_360px] gap-4'} grid`}>
+              <div className={`${isMobile ? 'min-h-[390px]' : 'h-full min-h-0'} relative overflow-hidden rounded-[18px] border border-dashed border-[#cbd6c8] bg-[#f2f6f0]`}>
                 <div className={`absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-4 transition ${
                   hasUploadedParcelImage ? 'opacity-0 hover:opacity-100' : ''
                 }`}>
@@ -659,8 +739,8 @@ const MetricCalculator: FC<IMetricCalculatorProps> = ({ isMobile = false }) => {
                   )}
               </div>
 
-              <SectionShell className='p-5'>
-                <div className='mb-4 flex items-center justify-between'>
+              <SectionShell className={`${isMobile ? 'p-5' : 'flex h-full min-h-0 flex-col p-5'}`}>
+                <div className='mb-4 flex shrink-0 items-center justify-between'>
                   <div className='flex items-center gap-2 text-[15px] font-semibold text-[#06130c]'>
                     <ScanIcon className='h-4 w-4 text-[#2f9e44]' />
                     地块识别结果
@@ -668,17 +748,17 @@ const MetricCalculator: FC<IMetricCalculatorProps> = ({ isMobile = false }) => {
                   <button type='button' className='text-[12px] font-medium text-[#2f9e44]'>重新识别</button>
                 </div>
                 {isRecognizing && (
-                  <div className='flex min-h-[220px] items-center justify-center rounded-[16px] bg-[#f7faf6] px-6 text-center text-[13px] text-[#53605a]'>
+                  <div className={`${isMobile ? 'min-h-[220px]' : 'min-h-0 flex-1'} flex items-center justify-center rounded-[16px] bg-[#f7faf6] px-6 text-center text-[13px] text-[#53605a]`}>
                     等待识别结果...
                   </div>
                 )}
                 {!isRecognizing && hasRecognitionAnswer && !hasRecognizedColors && (
-                  <div className='max-h-[300px] overflow-y-auto whitespace-pre-wrap rounded-[16px] bg-[#f7faf6] px-4 py-4 text-[13px] leading-6 text-[#06130c]'>
+                  <div className={`${isMobile ? 'max-h-[300px]' : 'min-h-0 flex-1'} overflow-y-auto whitespace-pre-wrap rounded-[16px] bg-[#f7faf6] px-4 py-4 text-[13px] leading-6 text-[#06130c]`}>
                     {recognitionAnswer}
                   </div>
                 )}
                 {!isRecognizing && !hasRecognitionAnswer && (
-                  <div className='flex min-h-[220px] items-center justify-center rounded-[16px] bg-[#f7faf6] px-6 text-center'>
+                  <div className={`${isMobile ? 'min-h-[220px]' : 'min-h-0 flex-1'} flex items-center justify-center rounded-[16px] bg-[#f7faf6] px-6 text-center`}>
                     <div>
                       <div className='text-[14px] font-semibold text-[#06130c]'>等待识别结果</div>
                       <div className='mt-2 text-[12px] leading-5 text-[#53605a]'>上传图片发送，返回识别结果。</div>
@@ -686,7 +766,7 @@ const MetricCalculator: FC<IMetricCalculatorProps> = ({ isMobile = false }) => {
                   </div>
                 )}
                 {hasRecognizedColors && (
-                  <div className='mt-5 space-y-3'>
+                  <div className={`${isMobile ? 'mt-5' : 'min-h-0 flex-1 overflow-y-auto pr-1'} space-y-3`}>
                     <div className='rounded-[16px] bg-[#f7faf6] px-4 py-3 text-[13px] leading-6 text-[#06130c]'>
                       已解析出 <span className='font-semibold text-[#2f9e44]'>{recognizedColors.length}</span> 种有效地块。
                     </div>
@@ -716,8 +796,8 @@ const MetricCalculator: FC<IMetricCalculatorProps> = ({ isMobile = false }) => {
               </SectionShell>
             </div>
 
-            <SectionShell className='overflow-hidden'>
-              <div className='flex items-center justify-between border-b border-[#dfe7dc] px-5 py-4'>
+            <SectionShell className={`${isMobile ? 'overflow-hidden' : 'flex h-[176px] shrink-0 flex-col overflow-hidden'}`}>
+              <div className='flex shrink-0 items-center justify-between border-b border-[#dfe7dc] px-5 py-3'>
                 <div className='flex items-center gap-2 text-[15px] font-semibold text-[#06130c]'>
                   <ClipboardDocumentCheckIcon className='h-4 w-4 text-[#2f9e44]' />
                   经济技术指标表
@@ -730,7 +810,7 @@ const MetricCalculator: FC<IMetricCalculatorProps> = ({ isMobile = false }) => {
               </div>
               {hasRecognizedColors
                 ? (
-                  <div className='overflow-x-auto'>
+                  <div className='min-h-0 flex-1 overflow-auto'>
                     <table className='w-full min-w-[680px] text-left text-[13px]'>
                       <thead className='text-[#53605a]'>
                         <tr className='border-b border-[#e7eee4]'>
@@ -759,7 +839,7 @@ const MetricCalculator: FC<IMetricCalculatorProps> = ({ isMobile = false }) => {
                   </div>
                 )
                 : (
-                  <div className='flex min-h-[160px] items-center justify-center px-6 text-center'>
+                  <div className={`${isMobile ? 'min-h-[160px]' : 'min-h-0 flex-1'} flex items-center justify-center px-6 text-center`}>
                     <div>
                       <div className='text-[14px] font-semibold text-[#06130c]'>暂无指标数据</div>
                       <div className='mt-2 text-[12px] leading-5 text-[#53605a]'>请先上传规划底图并点击发送，识别完成后将生成经济技术指标表。</div>
@@ -770,7 +850,7 @@ const MetricCalculator: FC<IMetricCalculatorProps> = ({ isMobile = false }) => {
           </div>
         )}
 
-        {activePanel === 'guide' && (
+        {false && (
           <div className='space-y-6'>
             <SectionShell className='p-5'>
               <div className='mb-4 flex items-center gap-2 text-[15px] font-semibold text-[#06130c]'>
@@ -976,7 +1056,7 @@ const MetricCalculator: FC<IMetricCalculatorProps> = ({ isMobile = false }) => {
                     </span>
                     {isOpen ? <ChevronUpIcon className='h-4 w-4 text-[#53605a]' /> : <ChevronDownIcon className='h-4 w-4 text-[#53605a]' />}
                   </button>
-                  {isOpen && 'formula' in item && (
+                  {isOpen && (
                     <div className='border-t border-[#dfe7dc] px-5 py-5'>
                       <div className='rounded-[16px] border border-[#dfe7dc] px-5 py-4 text-[16px] font-semibold text-[#06130c]'>{item.formula}</div>
                       <div className={`${isMobile ? 'grid-cols-1 gap-2' : 'grid-cols-2'} mt-4 grid text-[13px] text-[#53605a]`}>
@@ -988,108 +1068,33 @@ const MetricCalculator: FC<IMetricCalculatorProps> = ({ isMobile = false }) => {
                           <CalculatorIcon className='h-4 w-4 text-[#2f9e44]' />
                           内嵌计算器
                         </div>
-                        <div className={`${isMobile ? 'grid-cols-1' : 'grid-cols-2'} grid gap-4`}>
-                          <input className='h-10 rounded-full border-0 bg-[#eef3ec] px-4 text-[14px] outline-none placeholder:text-[#8b968c]' placeholder='绿地面积 (m²)  输入数值' />
-                          <input className='h-10 rounded-full border-0 bg-[#eef3ec] px-4 text-[14px] outline-none placeholder:text-[#8b968c]' placeholder='总用地面积 (m²)  输入数值' />
+                        <div className={`${isMobile ? 'grid-cols-1' : 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]'} grid gap-4`}>
+                          {item.inputs.map(input => (
+                            <input
+                              key={input.key}
+                              value={formulaInputs[`${item.key}.${input.key}`] || ''}
+                              onChange={event => handleFormulaInputChange(item.key, input.key, event.target.value)}
+                              onKeyDown={event => event.key === 'Enter' && handleCalculateFormula(item)}
+                              inputMode='decimal'
+                              className='h-10 rounded-full border-0 bg-[#eef3ec] px-4 text-[14px] outline-none placeholder:text-[#8b968c]'
+                              placeholder={`${input.placeholder}  输入数值`}
+                            />
+                          ))}
+                          <button
+                            type='button'
+                            onClick={() => handleCalculateFormula(item)}
+                            className='h-10 rounded-full bg-[#2f9e44] px-6 text-[13px] font-semibold text-white shadow-[0_12px_26px_-20px_rgba(47,158,68,0.65)] transition hover:bg-[#288a3d]'
+                          >
+                            计算
+                          </button>
                         </div>
-                        <div className='mt-4 text-[15px] text-[#53605a]'>= 计算结果：<span className='font-semibold text-[#2f9e44]'>请补全变量</span></div>
+                        <div className='mt-4 text-[15px] text-[#53605a]'>= 计算结果：<span className='font-semibold text-[#2f9e44]'>{formulaResults[item.key] || '请补全变量'}</span></div>
                       </div>
                     </div>
                   )}
                 </SectionShell>
               )
             })}
-          </div>
-        )}
-
-        {activePanel === 'verify' && (
-          <div className='space-y-5'>
-            <div className={`${isMobile ? 'grid-cols-1' : 'grid-cols-[280px_1fr]'} grid gap-5`}>
-              <SectionShell className='flex min-h-[210px] flex-col items-center justify-center p-5'>
-                <div className='relative flex h-[128px] w-[128px] items-center justify-center rounded-full border-[10px] border-[#edf2ea]'>
-                  <div className='absolute inset-[-10px] rounded-full border-[10px] border-[#e8c75e] border-l-transparent border-b-transparent' />
-                  <div className='relative text-center'>
-                    <div className='text-[30px] font-semibold text-[#e2bb4b]'>60</div>
-                    <div className='text-[12px] text-[#53605a]'>合规得分</div>
-                  </div>
-                </div>
-                <div className='mt-4 text-[14px] text-[#53605a]'>3 / 5 项达标</div>
-              </SectionShell>
-
-              <SectionShell className='p-6'>
-                <div className='mb-4 flex items-center justify-between gap-4'>
-                  <div className='flex items-center gap-2 text-[16px] font-semibold text-[#06130c]'>
-                    <ShieldCheckIcon className='h-5 w-5 text-[#2f9e44]' />
-                    核验摘要
-                  </div>
-                  <button type='button' className='rounded-full bg-[#2f9e44] px-4 py-2 text-[12px] font-semibold text-white'>生成核验报告</button>
-                </div>
-                <div className='space-y-3 text-[14px] leading-6 text-[#06130c]'>
-                  <p>• 绿地率 <span className='font-semibold text-red-500'>未达 GB 50180 要求</span>，缺口 2.5 个百分点。</p>
-                  <p>• 硬质铺装率偏高，建议替换为透水铺装以降低径流系数。</p>
-                  <p>• 建筑密度与活动场地占比均处于合规区间，可作为方案亮点。</p>
-                  <p>• 报告将包含：指标表、规范对照、不达标说明、优化建议、签字页。</p>
-                </div>
-              </SectionShell>
-            </div>
-
-            <SectionShell className='overflow-hidden'>
-              <div className='border-b border-[#dfe7dc] px-5 py-4 text-[15px] font-semibold text-[#06130c]'>核算看板</div>
-              <div className='overflow-x-auto'>
-                <table className='w-full min-w-[780px] text-left text-[13px]'>
-                  <thead className='text-[#53605a]'>
-                    <tr className='border-b border-[#e7eee4]'>
-                      <th className='px-5 py-3 font-medium'>指标</th>
-                      <th className='px-5 py-3 text-center font-medium'>实测值</th>
-                      <th className='px-5 py-3 text-center font-medium'>规范要求</th>
-                      <th className='px-5 py-3 text-right font-medium'>结论</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {verifyRows.map((row) => {
-                      const failed = row[3] === '未达标'
-
-                      return (
-                        <tr key={row[0]} className='border-b border-[#e7eee4] last:border-b-0'>
-                          <td className='px-5 py-4 font-medium text-[#06130c]'>{row[0]}</td>
-                          <td className='px-5 py-4 text-center text-[15px] font-semibold text-[#06130c]'>{row[1]}</td>
-                          <td className='px-5 py-4 text-center text-[#53605a]'>{row[2]}</td>
-                          <td className={`px-5 py-4 text-right font-semibold ${failed ? 'text-red-500' : 'text-[#2f9e44]'}`}>
-                            {failed ? <ExclamationTriangleIcon className='mr-1 inline h-4 w-4' /> : <CheckCircleIcon className='mr-1 inline h-4 w-4' />}
-                            {row[3]}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </SectionShell>
-
-            <div>
-              <div className='mb-3 flex items-center gap-2 text-[16px] font-semibold text-[#06130c]'>
-                <SparklesIcon className='h-5 w-5 text-[#2f9e44]' />
-                优化建议
-                <span className='text-[12px] font-normal text-[#53605a]'>基于现状自动生成</span>
-              </div>
-              <div className={`${isMobile ? 'grid-cols-1' : 'grid-cols-2'} grid gap-4`}>
-                {suggestions.map(item => (
-                  <SectionShell key={item.title} className='p-5'>
-                    <div className='mb-2 flex items-center justify-between gap-3'>
-                      <div className='text-[15px] font-semibold text-[#06130c]'>{item.title}</div>
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        item.status === '未达标' ? 'bg-red-50 text-red-500' : item.status === '偏高' ? 'bg-pink-50 text-pink-500' : 'bg-[#def3df] text-[#2f9e44]'
-                      }`}>{item.status}</span>
-                    </div>
-                    <p className='text-[13px] leading-6 text-[#53605a]'>{item.body}</p>
-                    <div className='mt-4 flex gap-2'>
-                      <button type='button' className='rounded-full bg-[#2f9e44] px-4 py-2 text-[12px] font-semibold text-white'>+ 采纳建议</button>
-                      <button type='button' className='rounded-full bg-[#edf3eb] px-4 py-2 text-[12px] font-semibold text-[#06130c]'>忽略</button>
-                    </div>
-                  </SectionShell>
-                ))}
-              </div>
-            </div>
           </div>
         )}
       </main>
