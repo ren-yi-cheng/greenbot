@@ -29,6 +29,7 @@ const categoryPublisherMap: Record<SpecCategory, string> = {
 }
 
 const defaultSpecBaseUrl = 'https://specs-1430019296.cos.ap-shanghai.myqcloud.com'
+const defaultSpecPathPrefix = 'specs'
 
 const normalizeSpaces = (value: string) => value.replace(/\s+/g, ' ').trim()
 
@@ -40,7 +41,7 @@ const encodePath = (value: string) => value.split('/').map(segment => encodeURIC
 
 const createFileUrl = (filePath: string) => {
   const baseUrl = trimSlashes(process.env.SPECS_BASE_URL || defaultSpecBaseUrl)
-  const pathPrefix = trimSlashes(process.env.SPECS_PATH_PREFIX || '')
+  const pathPrefix = trimSlashes(process.env.SPECS_PATH_PREFIX || defaultSpecPathPrefix)
   const encodedPath = encodePath(pathPrefix ? `${pathPrefix}/${filePath}` : filePath)
 
   return `${baseUrl}/${encodedPath}`
