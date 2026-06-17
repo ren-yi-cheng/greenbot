@@ -59,13 +59,13 @@ const Sidebar: FC<ISidebarProps> = ({
     },
     {
       key: 'evidence',
-      label: '依据生成',
+      label: '项目导引',
       icon: DocumentTextIcon,
       onClick: onEvidenceClick,
     },
     {
       key: 'project',
-      label: '项目辅助',
+      label: '案例辅助',
       icon: FolderIcon,
       onClick: onProjectClick,
     },
@@ -85,9 +85,7 @@ const Sidebar: FC<ISidebarProps> = ({
         </div>
       </div>
 
-      <div className='border-t border-[#eef1ea]' />
-
-      <div className='space-y-2 px-5 py-6'>
+      <div className='space-y-2 px-5 pb-6 pt-2'>
         <button
           type='button'
           onClick={onDashboardClick || (() => onCurrentIdChange('-1'))}

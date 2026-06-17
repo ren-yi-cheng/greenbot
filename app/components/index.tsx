@@ -22,6 +22,8 @@ import type { FileUpload } from '@/app/components/base/file-uploader-in-attachme
 import { Resolution, TransferMethod, WorkflowRunningStatus } from '@/types/app'
 import Chat from '@/app/components/chat'
 import MetricCalculator from '@/app/components/metric-calculator'
+import ProjectAssistant from '@/app/components/project-assistant'
+import ProjectGuide from '@/app/components/project-guide'
 import SpecQuery from '@/app/components/spec-query'
 import { setLocaleOnClient } from '@/i18n/client'
 import useBreakpoints, { MediaType } from '@/hooks/use-breakpoints'
@@ -46,12 +48,32 @@ const isParcelRecognitionConversation = (conversation: ConversationItem) => {
   return name.includes('请识别') && name.includes('城市绿地规划底图')
 }
 
+const isInternalJsonTaskText = (content = '') => {
+  const text = content.trim()
+  if (!text.startsWith('{')) {
+    return false
+  }
+
+  return [
+    '"task_type"',
+    'case_assistant',
+    'case_keywords_to_green_space_norms',
+    'indicator_guidance',
+    'retrieval_chain',
+    'output_schema',
+  ].some(keyword => text.includes(keyword))
+}
+
+const isInternalJsonTaskConversation = (conversation: ConversationItem) => {
+  return isInternalJsonTaskText(conversation.name || '')
+}
+
 const filterVisibleConversations = (conversations: ConversationItem[]) => {
-  return conversations.filter(item => !isParcelRecognitionConversation(item))
+  return conversations.filter(item => !isParcelRecognitionConversation(item) && !isInternalJsonTaskConversation(item))
 }
 
 const Main: FC<IMainProps> = () => {
-  const HOME_FEATURES_LOCKED = true
+  const HOME_FEATURES_LOCKED = false
   const { t } = useTranslation()
   const media = useBreakpoints()
   const isMobile = media === MediaType.mobile
@@ -160,6 +182,10 @@ const Main: FC<IMainProps> = () => {
         const newChatList: ChatItem[] = generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
 
         data.forEach((item: any) => {
+          if (isInternalJsonTaskText(item.query || '')) {
+            return
+          }
+
           newChatList.push({
             id: `question-${item.id}`,
             content: item.query,
@@ -238,12 +264,20 @@ const Main: FC<IMainProps> = () => {
     setComingSoonFeature(null)
   }
 
-  const handleGoComingSoonFeature = (page: 'metric' | 'evidence' | 'project', title: string) => {
-    setActivePage(page)
+  const handleGoProjectGuide = () => {
+    setActivePage('evidence')
     setIsLandingVisible(false)
     hideSidebar()
     setChatNotStarted()
-    setComingSoonFeature(title)
+    setComingSoonFeature(null)
+  }
+
+  const handleGoProjectAssistant = () => {
+    setActivePage('project')
+    setIsLandingVisible(false)
+    hideSidebar()
+    setChatNotStarted()
+    setComingSoonFeature(null)
   }
 
   const [chatList, setChatList, getChatList] = useGetState<ChatItem[]>([])
@@ -705,8 +739,8 @@ const Main: FC<IMainProps> = () => {
         onChatbotClick={handleGoChatbot}
         onSpecQueryClick={handleGoSpecQuery}
         onMetricClick={handleGoMetricCalculator}
-        onEvidenceClick={() => handleGoComingSoonFeature('evidence', '依据生成')}
-        onProjectClick={() => handleGoComingSoonFeature('project', '项目辅助')}
+        onEvidenceClick={handleGoProjectGuide}
+        onProjectClick={handleGoProjectAssistant}
         mode={activePage}
         currentId={currConversationId}
       />
@@ -749,13 +783,13 @@ const Main: FC<IMainProps> = () => {
       return
     }
 
-    if (title === '依据生成') {
-      handleGoComingSoonFeature('evidence', title)
+    if (title === '项目导引') {
+      handleGoProjectGuide()
       return
     }
 
-    if (title === '项目辅助') {
-      handleGoComingSoonFeature('project', title)
+    if (title === '案例辅助') {
+      handleGoProjectAssistant()
       return
     }
 
@@ -778,15 +812,15 @@ const Main: FC<IMainProps> = () => {
       bg: 'bg-[#fff4e8]',
     },
     {
-      title: '依据生成',
-      description: '将零散的规范条文自动转化为可直接引用的专业文段，提取规范依据摘要与项目设计原则，一键生成符合格式要求的设计说明与汇报大纲。',
+      title: '项目导引',
+      description: '输入项目基础信息、项目类型与场地特征，自动识别应重点关注的规划指标，帮助快速建立项目画像与指标关注清单。',
       icon: DocumentTextIcon,
       color: 'text-[#4b88ff]',
       bg: 'bg-[#edf4ff]',
     },
     {
-      title: '项目辅助',
-      description: '依托历年真实课程作业与项目案例提供情境化的规范指导，解答常见问题并预判规范风险。',
+      title: '案例辅助',
+      description: '依托历年真实课程作业与项目案例提供情境化的规范指导，解析可借鉴方法并关联规范风险。',
       icon: FolderIcon,
       color: 'text-[#9b59ff]',
       bg: 'bg-[#f4edff]',
@@ -849,26 +883,13 @@ const Main: FC<IMainProps> = () => {
   }
 
   if (isFeaturePage(activePage)) {
-    const featureTitleMap = {
-      spec: '规范查询',
-      metric: '指标计算',
-      evidence: '依据生成',
-      project: '项目辅助',
-    } as const
     const featureBody = activePage === 'spec'
       ? <SpecQuery isMobile={isMobile} />
       : activePage === 'metric'
         ? <MetricCalculator isMobile={isMobile} />
-        : (
-          <div className='flex h-full min-h-0 items-center justify-center bg-white px-8 text-center'>
-            <div>
-              <div className='text-[28px] font-semibold text-[#111827]'>{featureTitleMap[activePage]}</div>
-              <div className='mt-4 inline-flex rounded-full bg-[#2f9e44] px-5 py-2 text-[15px] font-semibold text-white shadow-[0_12px_24px_-18px_rgba(47,158,68,0.8)]'>
-                敬请期待
-              </div>
-            </div>
-          </div>
-        )
+        : activePage === 'evidence'
+          ? <ProjectGuide isMobile={isMobile} />
+          : <ProjectAssistant isMobile={isMobile} />
 
     if (isMobile) {
       return (
@@ -884,8 +905,8 @@ const Main: FC<IMainProps> = () => {
                     onChatbotClick={handleGoChatbot}
                     onSpecQueryClick={handleGoSpecQuery}
                     onMetricClick={handleGoMetricCalculator}
-                    onEvidenceClick={() => handleGoComingSoonFeature('evidence', '依据生成')}
-                    onProjectClick={() => handleGoComingSoonFeature('project', '项目辅助')}
+                    onEvidenceClick={handleGoProjectGuide}
+                    onProjectClick={handleGoProjectAssistant}
                     mode={activePage}
                     currentId={currConversationId}
                   />
@@ -950,8 +971,8 @@ const Main: FC<IMainProps> = () => {
                     onChatbotClick={handleGoChatbot}
                     onSpecQueryClick={handleGoSpecQuery}
                     onMetricClick={handleGoMetricCalculator}
-                    onEvidenceClick={() => handleGoComingSoonFeature('evidence', '依据生成')}
-                    onProjectClick={() => handleGoComingSoonFeature('project', '项目辅助')}
+                    onEvidenceClick={handleGoProjectGuide}
+                    onProjectClick={handleGoProjectAssistant}
                     mode='dashboard'
                     currentId={currConversationId}
                   />
@@ -1053,8 +1074,8 @@ const Main: FC<IMainProps> = () => {
             onChatbotClick={handleGoChatbot}
             onSpecQueryClick={handleGoSpecQuery}
             onMetricClick={handleGoMetricCalculator}
-            onEvidenceClick={() => handleGoComingSoonFeature('evidence', '依据生成')}
-            onProjectClick={() => handleGoComingSoonFeature('project', '项目辅助')}
+            onEvidenceClick={handleGoProjectGuide}
+            onProjectClick={handleGoProjectAssistant}
             mode='dashboard'
             currentId={currConversationId}
           />
@@ -1085,9 +1106,9 @@ const Main: FC<IMainProps> = () => {
                 </div>
               </div>
 
-                <div className='mt-[32px]'>
+              <div className='mt-[32px]'>
                 <div className='text-[17px] font-semibold text-[#111827]'>功能列表</div>
-                  <div className='mt-4 grid grid-cols-4 gap-4'>
+                <div className='mt-4 grid grid-cols-4 gap-4'>
                   {quickActions.map((item) => {
                     const Icon = item.icon
                     return (
@@ -1137,8 +1158,8 @@ const Main: FC<IMainProps> = () => {
                   onChatbotClick={handleGoChatbot}
                   onSpecQueryClick={handleGoSpecQuery}
                   onMetricClick={handleGoMetricCalculator}
-                  onEvidenceClick={() => handleGoComingSoonFeature('evidence', '依据生成')}
-                  onProjectClick={() => handleGoComingSoonFeature('project', '项目辅助')}
+                  onEvidenceClick={handleGoProjectGuide}
+                  onProjectClick={handleGoProjectAssistant}
                   mode='chat'
                   currentId={currConversationId}
                 />

@@ -50,7 +50,7 @@ const SpecQuery: FC<ISpecQueryProps> = ({ isMobile = false }) => {
       setIsLoading(true)
 
       try {
-        const response = await fetch('/api/specs')
+        const response = await fetch('/api/specs', { cache: 'no-store' })
         const result = await response.json()
         const nextSpecs = (result.data || []) as SpecItem[]
 
