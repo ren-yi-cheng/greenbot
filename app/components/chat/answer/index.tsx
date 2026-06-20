@@ -210,10 +210,7 @@ const Answer: FC<IAnswerProps> = ({
         </div>
         <div className={`${s.answerWrap} max-w-[72%]`}>
           <div className={`${s.answer} relative text-sm text-gray-900`}>
-            <div className={`rounded-[14px] border border-[#d9ddd7] bg-white px-5 py-4 text-[15px] leading-7 shadow-[0_14px_32px_-28px_rgba(15,23,42,0.18)] ${workflowProcess && 'min-w-[480px]'}`}>
-              {workflowProcess && (
-                <WorkflowProcess data={workflowProcess} hideInfo />
-              )}
+            <div className='rounded-[14px] border border-[#d9ddd7] bg-white px-5 py-4 text-[15px] leading-7 shadow-[0_14px_32px_-28px_rgba(15,23,42,0.18)]'>
               {(isResponding && (isAgentMode ? (!content && (agent_thoughts || []).filter(item => !!item.thought || !!item.tool).length === 0) : !content))
                 ? (
                   <div className="flex items-center justify-center w-6 h-5">

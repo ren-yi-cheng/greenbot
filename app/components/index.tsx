@@ -363,13 +363,11 @@ const Main: FC<IMainProps> = () => {
           suggested_questions: nextSuggestedQuestions,
         })
         if (isNotNewConversation) {
-          setActivePage('chat')
           setExistConversationInfo({
             name: currentConversation.name || t('app.chat.newChatDefaultName'),
             introduction,
             suggested_questions: nextSuggestedQuestions,
           })
-          setIsLandingVisible(false)
         }
         const prompt_variables = userInputsFormToPromptVariables(user_input_form)
         setPromptConfig({
@@ -748,7 +746,7 @@ const Main: FC<IMainProps> = () => {
   }
 
   const handleGetStarted = () => {
-    setIsLandingVisible(false)
+    handleGoDashboard()
   }
 
   const handleStartFromHome = () => {
@@ -757,6 +755,10 @@ const Main: FC<IMainProps> = () => {
       logError(t('app.errorMessage.valueOfVarRequired'))
       return
     }
+
+    setActivePage('chat')
+    setIsLandingVisible(false)
+    hideSidebar()
 
     if (hasPromptVariables) {
       handleStartChat({})
